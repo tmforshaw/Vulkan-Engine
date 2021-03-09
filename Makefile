@@ -1,8 +1,8 @@
 PROJECTNAME = VulkanEngine
 
 CC = clang++
-CFLAGS = -std=c++2a -Wall
-LINKFLAGS = # -lGL -lGLU -lglfw3 -lX11 -lXxf86vm -lXrandr -lpthread -lXi -ldl -lXinerama -lXcursor
+CFLAGS = -std=c++2a -Wall -O2
+LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 BUILDDIR := bin
 OBJDIR := lib
