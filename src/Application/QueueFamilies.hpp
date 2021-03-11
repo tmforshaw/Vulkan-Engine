@@ -6,11 +6,15 @@
 struct QueueFamilyIndices
 {
 	std::optional<uint32_t> graphicsFamily;
+	std::optional<uint32_t> presentFamily;
 
-	bool IsComplete() { return graphicsFamily.has_value(); }
+	bool IsComplete()
+	{
+		return graphicsFamily.has_value() && presentFamily.has_value();
+	}
 };
 
-QueueFamilyIndices FindQueueFamilies( VkPhysicalDevice p_device )
+QueueFamilyIndices FindQueueFamilies( const VkPhysicalDevice& p_device, const VkSurfaceKHR& p_surface )
 {
 	QueueFamilyIndices indices;
 
@@ -22,13 +26,21 @@ QueueFamilyIndices FindQueueFamilies( VkPhysicalDevice p_device )
 	VkQueueFamilyProperties queueFamilies[queueFamilyCount];
 	vkGetPhysicalDeviceQueueFamilyProperties( p_device, &queueFamilyCount, queueFamilies );
 
-	for ( uint32_t i = 0; i < queueFamilyCount; i++ ) // Iterate over queue families
-	{
-		if ( queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT ) // If the graphics bit is set
-			indices.graphicsFamily = i;							   // Set the graphics family to this index
+	{ // Inside of a scope to destroy presentSupport
+		VkBool32 presentSupport = false;
+		for ( uint32_t i = 0; i < queueFamilyCount; i++ ) // Iterate over queue families
+		{
+			// Look for a graphics queue
+			if ( queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT )
+				indices.graphicsFamily = i; // Set the graphics family to this index
 
-		// Exit loop if the indices are complete
-		if ( indices.IsComplete() ) return indices;
+			// Query the queue family for window surface support
+			vkGetPhysicalDeviceSurfaceSupportKHR( p_device, i, p_surface, &presentSupport );
+			if ( presentSupport ) indices.presentFamily = i; // Set the presentation family to this index
+
+			// Exit loop if the indices are complete
+			if ( indices.IsComplete() ) return indices;
+		}
 	}
 
 	// This is an incomplete set of indices
