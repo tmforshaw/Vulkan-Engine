@@ -78,4 +78,5 @@ $(BUILDDIR)/$(PROJECTNAME).bin: $(OBJS)
 .PHONY: run
 run: build
 	@echo !-- Running --!
+	@echo # Console padding
 	@./$(BUILDDIR)/$(PROJECTNAME).bin
