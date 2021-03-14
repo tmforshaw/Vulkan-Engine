@@ -1,6 +1,7 @@
 #pragma once
 #include "DebugMessenger.hpp"
 #include "QueueFamilies.hpp"
+#include "Shaders.hpp"
 #include "Swapchain.hpp"
 
 #define GLFW_INCLUDE_VULKAN
@@ -490,6 +491,16 @@ private:
 
 	void CreateGraphicsPipeline()
 	{
+		// Read the shader files
+		auto vertShaderCode = ReadFile( "shaders/SimpleShader.vert.GLSL" );
+		auto fragShaderCode = ReadFile( "shaders/SimpleShader.frag.GLSL" );
+
+		// If they have data
+		if ( !vertShaderCode.empty() && !fragShaderCode.empty() )
+		{
+			std::cout << "Vertex shader loaded (" << vertShaderCode.size() << " bytes)" << std::endl;
+			std::cout << "Fragment shader loaded (" << fragShaderCode.size() << " bytes)" << std::endl;
+		}
 	}
 
 	void MainLoop()
