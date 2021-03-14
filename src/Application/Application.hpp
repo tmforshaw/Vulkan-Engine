@@ -791,7 +791,7 @@ private:
 				throw std::runtime_error( "Failed to begin recording command buffer[" + std::to_string( i ) + "]" );
 
 			// Set a clear colour
-			VkClearValue clearColour = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+			VkClearValue clearColour = { { { 0.0f, 0.0f, 0.0f, 1.0f } } };
 
 			// Setup the begin informatio for the render pass
 			VkRenderPassBeginInfo renderPassBeginInfo {};
