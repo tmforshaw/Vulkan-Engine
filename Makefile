@@ -8,6 +8,7 @@ BUILDDIR := bin
 OBJDIR := lib
 SRCDIR := src
 DEPENDDIR := dependencies
+SHADERDIR := shaders
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
@@ -17,6 +18,12 @@ DEPENDSRC += $(call rwildcard,$(DEPENDDIR),*.c)
 
 OBJS := $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRC)) # SRC objects
 OBJS += $(patsubst $(DEPENDDIR)/%.cpp, $(OBJDIR)/$(DEPENDDIR)/%.o,$(patsubst $(DEPENDDIR)/%.c, $(OBJDIR)/$(DEPENDDIR)/%.o, $(DEPENDSRC))) # Dependency objects
+
+SHADERS := $(patsubst $(SHADERDIR)/%.GLSL, $(OBJDIR)/$(SHADERDIR)/%.spv, $(call rwildcard, $(SHADERDIR), *.GLSL) ) # Shaders
+
+.PHONY: temp
+temp:
+	@echo $(SHADERS)
 
 # Build the project
 .PHONY: build
@@ -69,6 +76,16 @@ $(OBJDIR)/$(DEPENDDIR)/%.o: $(DEPENDDIR)/%.cpp
 	@mkdir -p $(@D)
 	@$(CC) -c $^ -o $@ $(CFLAGS)
 
+# Compile the individual shaders
+$(OBJDIR)/$(SHADERDIR)/%.spv: $(SHADERDIR)/%.GLSL
+	@echo !-- Compiling $^ --!
+	@mkdir -p temp/$(^D)
+	@cp -r $^ temp/$(basename $^)
+
+	@mkdir -p $(@D)
+	@glslc temp/$(basename $^) -o $@
+	@rm -r temp
+
 # Link the files together
 $(BUILDDIR)/$(PROJECTNAME).bin: $(OBJS)
 	@echo !-- Linking $^ --!
@@ -76,7 +93,7 @@ $(BUILDDIR)/$(PROJECTNAME).bin: $(OBJS)
 
 # Run the project as an executable
 .PHONY: run
-run: build
+run: build $(SHADERS)
 	@echo !-- Running --!
 	@echo # Console padding
 	@./$(BUILDDIR)/$(PROJECTNAME).bin

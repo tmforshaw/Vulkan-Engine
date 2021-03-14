@@ -62,6 +62,9 @@ private:
 
 		// Create image views for the swap chain images
 		CreateImageViews();
+
+		// Create the graphics pipeline
+		CreateGraphicsPipeline();
 	}
 
 	void InitWindow()
@@ -483,6 +486,10 @@ private:
 			if ( vkCreateImageView( m_logicalDevice, &createInfo, nullptr, &m_swapchainImageViews[i] ) != VK_SUCCESS )
 				throw std::runtime_error( "Failed to create image view" );
 		}
+	}
+
+	void CreateGraphicsPipeline()
+	{
 	}
 
 	void MainLoop()
