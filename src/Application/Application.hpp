@@ -26,23 +26,25 @@ const uint32_t deviceExtensionCount = 1;
 class Application
 {
 private:
-	GLFWwindow*				   m_window;
-	VkInstance				   m_instance;
-	VkDebugUtilsMessengerEXT   m_debugMessenger;
-	VkPhysicalDevice		   m_physicalDevice;
-	VkDevice				   m_logicalDevice;
-	VkQueue					   m_graphicsQueue;
-	VkQueue					   m_presentQueue;
-	VkSurfaceKHR			   m_surface;
-	VkSwapchainKHR			   m_swapchain;
-	std::vector<VkImage>	   m_swapchainImages;
-	VkFormat				   m_swapchainImageFormat;
-	VkExtent2D				   m_swapchainExtent;
-	std::vector<VkImageView>   m_swapchainImageViews;
-	VkRenderPass			   m_renderPass;
-	VkPipelineLayout		   m_pipelineLayout;
-	VkPipeline				   m_graphicsPipeline;
-	std::vector<VkFramebuffer> m_swapchainFramebuffers;
+	GLFWwindow*					 m_window;
+	VkInstance					 m_instance;
+	VkDebugUtilsMessengerEXT	 m_debugMessenger;
+	VkPhysicalDevice			 m_physicalDevice;
+	VkDevice					 m_logicalDevice;
+	VkQueue						 m_graphicsQueue;
+	VkQueue						 m_presentQueue;
+	VkSurfaceKHR				 m_surface;
+	VkSwapchainKHR				 m_swapchain;
+	std::vector<VkImage>		 m_swapchainImages;
+	VkFormat					 m_swapchainImageFormat;
+	VkExtent2D					 m_swapchainExtent;
+	std::vector<VkImageView>	 m_swapchainImageViews;
+	VkRenderPass				 m_renderPass;
+	VkPipelineLayout			 m_pipelineLayout;
+	VkPipeline					 m_graphicsPipeline;
+	std::vector<VkFramebuffer>	 m_swapchainFramebuffers;
+	VkCommandPool				 m_commandPool;
+	std::vector<VkCommandBuffer> m_commandBuffers;
 
 	void InitVulkan()
 	{
@@ -76,6 +78,12 @@ private:
 
 		// Create the framebuffers
 		CreateFramebuffers();
+
+		// Create the command pool
+		CreateCommandPool();
+
+		// Create the command buffers
+		CreateCommandBuffers();
 	}
 
 	void InitWindow()
@@ -691,7 +699,7 @@ private:
 			graphicsPipelineCreateInfo.pMultisampleState   = &multisamplingCreateInfo;
 			graphicsPipelineCreateInfo.pDepthStencilState  = nullptr;
 			graphicsPipelineCreateInfo.pColorBlendState	   = &colourBlendCreateInfo;
-			graphicsPipelineCreateInfo.pDynamicState	   = &dynamicStateCreateInfo;
+			graphicsPipelineCreateInfo.pDynamicState	   = nullptr;
 			graphicsPipelineCreateInfo.layout			   = m_pipelineLayout;
 			graphicsPipelineCreateInfo.renderPass		   = m_renderPass;
 			graphicsPipelineCreateInfo.subpass			   = 0;
@@ -737,8 +745,83 @@ private:
 		}
 	}
 
-	void
-	MainLoop()
+	void CreateCommandPool()
+	{
+		// Get the family indices
+		QueueFamilyIndices queueFamilyIndices = FindQueueFamilies( m_physicalDevice, m_surface );
+
+		// Setup the create information for the command pool
+		VkCommandPoolCreateInfo poolCreateInfo {};
+		poolCreateInfo.sType			= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolCreateInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+		poolCreateInfo.flags			= 0;
+
+		// Create the command pool
+		if ( vkCreateCommandPool( m_logicalDevice, &poolCreateInfo, nullptr, &m_commandPool ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to create command pool" );
+	}
+
+	void CreateCommandBuffers()
+	{
+		// Resize the command buffers vector
+		m_commandBuffers.resize( m_swapchainFramebuffers.size() );
+
+		// Setup the allocation information for the command buffer
+		VkCommandBufferAllocateInfo commandBufferAllocInfo {};
+		commandBufferAllocInfo.sType			  = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		commandBufferAllocInfo.commandPool		  = m_commandPool;
+		commandBufferAllocInfo.level			  = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		commandBufferAllocInfo.commandBufferCount = (uint32_t)m_commandBuffers.size();
+
+		// Create the command buffers
+		if ( vkAllocateCommandBuffers( m_logicalDevice, &commandBufferAllocInfo, m_commandBuffers.data() ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to allocate command buffers" );
+
+		// Begin recording to the command buffers
+		for ( size_t i = 0; i < m_commandBuffers.size(); i++ )
+		{
+			// Setup the begin information for the command buffer
+			VkCommandBufferBeginInfo commandBufferBeginInfo {};
+			commandBufferBeginInfo.sType			= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			commandBufferBeginInfo.flags			= 0;
+			commandBufferBeginInfo.pInheritanceInfo = nullptr;
+
+			// Create the command buffer
+			if ( vkBeginCommandBuffer( m_commandBuffers[i], &commandBufferBeginInfo ) != VK_SUCCESS )
+				throw std::runtime_error( "Failed to begin recording command buffer[" + std::to_string( i ) + "]" );
+
+			// Set a clear colour
+			VkClearValue clearColour = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+
+			// Setup the begin informatio for the render pass
+			VkRenderPassBeginInfo renderPassBeginInfo {};
+			renderPassBeginInfo.sType			  = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+			renderPassBeginInfo.renderPass		  = m_renderPass;
+			renderPassBeginInfo.framebuffer		  = m_swapchainFramebuffers[i];
+			renderPassBeginInfo.renderArea.offset = { 0, 0 };
+			renderPassBeginInfo.renderArea.extent = m_swapchainExtent;
+			renderPassBeginInfo.clearValueCount	  = 1;
+			renderPassBeginInfo.pClearValues	  = &clearColour;
+
+			// Record the beginning of a render pass
+			vkCmdBeginRenderPass( m_commandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE );
+
+			// Record the binding of the graphics pipeline
+			vkCmdBindPipeline( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline );
+
+			// Record the drawing of the triangle
+			vkCmdDraw( m_commandBuffers[i], 3, 1, 0, 0 );
+
+			// Record the end of the render pass
+			vkCmdEndRenderPass( m_commandBuffers[i] );
+
+			// Finish the recording and check for errors
+			if ( vkEndCommandBuffer( m_commandBuffers[i] ) != VK_SUCCESS )
+				throw std::runtime_error( "Failed to record command buffer" );
+		}
+	}
+
+	void MainLoop()
 	{
 		while ( !glfwWindowShouldClose( m_window ) ) // Loop until the window is supposed to close
 		{
@@ -748,6 +831,9 @@ private:
 
 	void Cleanup()
 	{
+		// Delete the command pool
+		vkDestroyCommandPool( m_logicalDevice, m_commandPool, nullptr );
+
 		// Delete the framebuffers
 		for ( const auto& framebuffer : m_swapchainFramebuffers )
 			vkDestroyFramebuffer( m_logicalDevice, framebuffer, nullptr );
