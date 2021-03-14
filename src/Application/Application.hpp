@@ -26,20 +26,23 @@ const uint32_t deviceExtensionCount = 1;
 class Application
 {
 private:
-	GLFWwindow*				 m_window;
-	VkInstance				 m_instance;
-	VkDebugUtilsMessengerEXT m_debugMessenger;
-	VkPhysicalDevice		 m_physicalDevice;
-	VkDevice				 m_logicalDevice;
-	VkQueue					 m_graphicsQueue;
-	VkQueue					 m_presentQueue;
-	VkSurfaceKHR			 m_surface;
-	VkSwapchainKHR			 m_swapchain;
-	std::vector<VkImage>	 m_swapchainImages;
-	VkFormat				 m_swapchainImageFormat;
-	VkExtent2D				 m_swapchainExtent;
-	std::vector<VkImageView> m_swapchainImageViews;
-	VkPipelineLayout		 m_pipelineLayout;
+	GLFWwindow*				   m_window;
+	VkInstance				   m_instance;
+	VkDebugUtilsMessengerEXT   m_debugMessenger;
+	VkPhysicalDevice		   m_physicalDevice;
+	VkDevice				   m_logicalDevice;
+	VkQueue					   m_graphicsQueue;
+	VkQueue					   m_presentQueue;
+	VkSurfaceKHR			   m_surface;
+	VkSwapchainKHR			   m_swapchain;
+	std::vector<VkImage>	   m_swapchainImages;
+	VkFormat				   m_swapchainImageFormat;
+	VkExtent2D				   m_swapchainExtent;
+	std::vector<VkImageView>   m_swapchainImageViews;
+	VkRenderPass			   m_renderPass;
+	VkPipelineLayout		   m_pipelineLayout;
+	VkPipeline				   m_graphicsPipeline;
+	std::vector<VkFramebuffer> m_swapchainFramebuffers;
 
 	void InitVulkan()
 	{
@@ -70,6 +73,9 @@ private:
 
 		// Create the graphics pipeline
 		CreateGraphicsPipeline();
+
+		// Create the framebuffers
+		CreateFramebuffers();
 	}
 
 	void InitWindow()
@@ -495,6 +501,39 @@ private:
 
 	void CreateRenderPass()
 	{
+		// Set the rendering settings
+		VkAttachmentDescription colourAttatchment {};
+		colourAttatchment.format		 = m_swapchainImageFormat;
+		colourAttatchment.samples		 = VK_SAMPLE_COUNT_1_BIT;
+		colourAttatchment.loadOp		 = VK_ATTACHMENT_LOAD_OP_CLEAR;	 // Clear the frame buffer to black each frame
+		colourAttatchment.storeOp		 = VK_ATTACHMENT_STORE_OP_STORE; // Store the contents into memory
+		colourAttatchment.stencilLoadOp	 = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colourAttatchment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colourAttatchment.initialLayout	 = VK_IMAGE_LAYOUT_UNDEFINED;
+		colourAttatchment.finalLayout	 = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		// Setup subpasses and attatchment references
+		VkAttachmentReference colourAttatchmentRef {};
+		colourAttatchmentRef.attachment = 0;										// Which attachment to reference (by index in attachment descriptions array)
+		colourAttatchmentRef.layout		= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // Layout for the subpass
+
+		// Create a subpass description
+		VkSubpassDescription subpass {};
+		subpass.pipelineBindPoint	 = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1; // Index of colour attachment
+		subpass.pColorAttachments	 = &colourAttatchmentRef;
+
+		// Set the render pass create info
+		VkRenderPassCreateInfo renderPassCreateInfo {};
+		renderPassCreateInfo.sType			 = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassCreateInfo.attachmentCount = 1;
+		renderPassCreateInfo.pAttachments	 = &colourAttatchment;
+		renderPassCreateInfo.subpassCount	 = 1;
+		renderPassCreateInfo.pSubpasses		 = &subpass;
+
+		// Create the render pass
+		if ( vkCreateRenderPass( m_logicalDevice, &renderPassCreateInfo, nullptr, &m_renderPass ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to create render pass" );
 	}
 
 	void CreateGraphicsPipeline()
@@ -640,13 +679,66 @@ private:
 			if ( vkCreatePipelineLayout( m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout ) != VK_SUCCESS )
 				throw std::runtime_error( "Failed to create pipeline lauout" );
 
+			// Setup the graphics pipeline create information
+			VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo {};
+			graphicsPipelineCreateInfo.sType			   = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+			graphicsPipelineCreateInfo.stageCount		   = 2;
+			graphicsPipelineCreateInfo.pStages			   = shaderStages;
+			graphicsPipelineCreateInfo.pVertexInputState   = &vertexInputInfo;
+			graphicsPipelineCreateInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
+			graphicsPipelineCreateInfo.pViewportState	   = &viewportStateCreateInfo;
+			graphicsPipelineCreateInfo.pRasterizationState = &rasteriserCreateInfo;
+			graphicsPipelineCreateInfo.pMultisampleState   = &multisamplingCreateInfo;
+			graphicsPipelineCreateInfo.pDepthStencilState  = nullptr;
+			graphicsPipelineCreateInfo.pColorBlendState	   = &colourBlendCreateInfo;
+			graphicsPipelineCreateInfo.pDynamicState	   = &dynamicStateCreateInfo;
+			graphicsPipelineCreateInfo.layout			   = m_pipelineLayout;
+			graphicsPipelineCreateInfo.renderPass		   = m_renderPass;
+			graphicsPipelineCreateInfo.subpass			   = 0;
+			graphicsPipelineCreateInfo.basePipelineHandle  = VK_NULL_HANDLE;
+			graphicsPipelineCreateInfo.basePipelineIndex   = -1;
+
+			// Create the graphics pipeline
+			if ( vkCreateGraphicsPipelines( m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &m_graphicsPipeline ) != VK_SUCCESS )
+				throw std::runtime_error( "Failed to create graphics pipeline" );
+
 			// Destroy the shader modules (Once the graphics pipeline is created they aren't needed)
 			vkDestroyShaderModule( m_logicalDevice, vertShaderModule, nullptr );
 			vkDestroyShaderModule( m_logicalDevice, fragShaderModule, nullptr );
 		}
 	}
 
-	void MainLoop()
+	void CreateFramebuffers()
+	{
+		// Resize the framebuffer vector to hold all the frame buffers
+		m_swapchainFramebuffers.resize( m_swapchainImageViews.size() );
+
+		// Create frame buffers from the image views
+		for ( size_t i = 0; i < m_swapchainImageViews.size(); i++ )
+		{
+			// Create an image view array
+			VkImageView attachments[] = {
+				m_swapchainImageViews[i]
+			};
+
+			// Setup the framebuffer create information
+			VkFramebufferCreateInfo framebufferCreateInfo {};
+			framebufferCreateInfo.sType			  = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			framebufferCreateInfo.renderPass	  = m_renderPass;
+			framebufferCreateInfo.attachmentCount = 1;
+			framebufferCreateInfo.pAttachments	  = attachments;
+			framebufferCreateInfo.width			  = m_swapchainExtent.width;
+			framebufferCreateInfo.height		  = m_swapchainExtent.height;
+			framebufferCreateInfo.layers		  = 1;
+
+			// Create the frame buffer
+			if ( vkCreateFramebuffer( m_logicalDevice, &framebufferCreateInfo, nullptr, &m_swapchainFramebuffers[i] ) != VK_SUCCESS )
+				throw std::runtime_error( "Failed to create framebuffer" );
+		}
+	}
+
+	void
+	MainLoop()
 	{
 		while ( !glfwWindowShouldClose( m_window ) ) // Loop until the window is supposed to close
 		{
@@ -656,8 +748,18 @@ private:
 
 	void Cleanup()
 	{
+		// Delete the framebuffers
+		for ( const auto& framebuffer : m_swapchainFramebuffers )
+			vkDestroyFramebuffer( m_logicalDevice, framebuffer, nullptr );
+
+		// Destroy the graphics pipeline
+		vkDestroyPipeline( m_logicalDevice, m_graphicsPipeline, nullptr );
+
 		// Destroy the pipeline layout
 		vkDestroyPipelineLayout( m_logicalDevice, m_pipelineLayout, nullptr );
+
+		// Destroy the render pass
+		vkDestroyRenderPass( m_logicalDevice, m_renderPass, nullptr );
 
 		// Destroy the image views
 		for ( const auto& imageView : m_swapchainImageViews )
