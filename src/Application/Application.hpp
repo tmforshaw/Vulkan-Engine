@@ -45,6 +45,8 @@ private:
 	std::vector<VkFramebuffer>	 m_swapchainFramebuffers;
 	VkCommandPool				 m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
+	VkSemaphore					 m_imageAvailableSemaphore;
+	VkSemaphore					 m_renderFinishedSemaphore;
 
 	void InitVulkan()
 	{
@@ -84,6 +86,9 @@ private:
 
 		// Create the command buffers
 		CreateCommandBuffers();
+
+		// Create the semaphores
+		CreateSemaphors();
 	}
 
 	void InitWindow()
@@ -531,6 +536,15 @@ private:
 		subpass.colorAttachmentCount = 1; // Index of colour attachment
 		subpass.pColorAttachments	 = &colourAttatchmentRef;
 
+		// Set a dependency for the image to be acquired before the subpass starts
+		VkSubpassDependency dependency {};
+		dependency.srcSubpass	 = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass	 = 0;
+		dependency.srcStageMask	 = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // Wait on this operation
+		dependency.srcAccessMask = 0;
+		dependency.dstStageMask	 = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // The operations that should wait
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;		  // The operations that should wait
+
 		// Set the render pass create info
 		VkRenderPassCreateInfo renderPassCreateInfo {};
 		renderPassCreateInfo.sType			 = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -538,6 +552,8 @@ private:
 		renderPassCreateInfo.pAttachments	 = &colourAttatchment;
 		renderPassCreateInfo.subpassCount	 = 1;
 		renderPassCreateInfo.pSubpasses		 = &subpass;
+		renderPassCreateInfo.dependencyCount = 1;
+		renderPassCreateInfo.pDependencies	 = &dependency;
 
 		// Create the render pass
 		if ( vkCreateRenderPass( m_logicalDevice, &renderPassCreateInfo, nullptr, &m_renderPass ) != VK_SUCCESS )
@@ -821,20 +837,84 @@ private:
 		}
 	}
 
+	void CreateSemaphors()
+	{
+		// Setup the semaphore create information
+		VkSemaphoreCreateInfo semaphoreCreateInfo {};
+		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		// Create the semaphores
+		if ( vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphore ) != VK_SUCCESS ||
+			 vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphore ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to create semaphores" );
+	}
+
+	void DrawFrame()
+	{
+		// Acquire the image from the swap chain (gets the index from the the swapchainImages array)
+		uint32_t imageIndex;
+		vkAcquireNextImageKHR( m_logicalDevice, m_swapchain, (uint64_t)-1, m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex );
+
+		// Which semaphores and stages to wait on before execution
+		VkSemaphore			 waitSemaphores[] = { m_imageAvailableSemaphore };
+		VkPipelineStageFlags waitStages[]	  = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
+		// Specify the signal semaphores
+		VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore }; // Semaphores to signal when the execution ends
+
+		// Submit the command buffer
+		VkSubmitInfo submitInfo {};
+		submitInfo.sType				= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.waitSemaphoreCount	= 1;
+		submitInfo.pWaitSemaphores		= waitSemaphores;
+		submitInfo.pWaitDstStageMask	= waitStages;
+		submitInfo.commandBufferCount	= 1;
+		submitInfo.pCommandBuffers		= &m_commandBuffers[imageIndex];
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores	= signalSemaphores;
+
+		// Submit the command buffer to the queue
+		if ( vkQueueSubmit( m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to submit draw command buffer" );
+
+		// Specify the swapchain
+		VkSwapchainKHR swapchains[] = { m_swapchain };
+
+		// Setup the present information
+		VkPresentInfoKHR presentInfo {};
+		presentInfo.sType			   = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores	   = signalSemaphores;
+		presentInfo.swapchainCount	   = 1;
+		presentInfo.pSwapchains		   = swapchains;
+		presentInfo.pImageIndices	   = &imageIndex;
+		presentInfo.pResults		   = nullptr;
+
+		// Give the present image to the swap chain
+		vkQueuePresentKHR( m_presentQueue, &presentInfo );
+	}
+
 	void MainLoop()
 	{
 		while ( !glfwWindowShouldClose( m_window ) ) // Loop until the window is supposed to close
 		{
 			glfwPollEvents(); // Check for events and then call the correct callback
+
+			// Draw the frame
+			DrawFrame();
 		}
 	}
 
 	void Cleanup()
 	{
-		// Delete the command pool
+		// Destroy the semaphores
+		vkDestroySemaphore( m_logicalDevice, m_imageAvailableSemaphore, nullptr );
+		vkDestroySemaphore( m_logicalDevice, m_renderFinishedSemaphore, nullptr );
+
+		// Destroy the command pool
 		vkDestroyCommandPool( m_logicalDevice, m_commandPool, nullptr );
 
-		// Delete the framebuffers
+		// Destroy the framebuffers
 		for ( const auto& framebuffer : m_swapchainFramebuffers )
 			vkDestroyFramebuffer( m_logicalDevice, framebuffer, nullptr );
 
