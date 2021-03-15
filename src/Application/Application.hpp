@@ -22,6 +22,7 @@ const char*	   deviceExtensions[]	= { VK_KHR_SWAPCHAIN_EXTENSION_NAME }; // The 
 const uint32_t deviceExtensionCount = 1;
 
 #define ENABLE_VALIDATION_LAYERS 1 // When in debug mode enable validation layers
+#define MAX_FRAMES_IN_FLIGHT	 2 // Maximum number of frames to process concurrently
 
 class Application
 {
@@ -45,8 +46,11 @@ private:
 	std::vector<VkFramebuffer>	 m_swapchainFramebuffers;
 	VkCommandPool				 m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
-	VkSemaphore					 m_imageAvailableSemaphore;
-	VkSemaphore					 m_renderFinishedSemaphore;
+	std::vector<VkSemaphore>	 m_imageAvailableSemaphores;
+	std::vector<VkSemaphore>	 m_renderFinishedSemaphores;
+	std::vector<VkFence>		 m_inFlightFences;
+	std::vector<VkFence>		 m_inFlightImages;
+	size_t						 m_currentFrame;
 
 	void InitVulkan()
 	{
@@ -87,8 +91,8 @@ private:
 		// Create the command buffers
 		CreateCommandBuffers();
 
-		// Create the semaphores
-		CreateSemaphors();
+		// Create the semaphores and fences
+		CreateSyncObjects();
 	}
 
 	void InitWindow()
@@ -255,7 +259,7 @@ private:
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* p_callbackData, void* p_userData )
 	{
-		std::cerr << "Validation Layer: " << p_callbackData->pMessage << std::endl
+		std::cerr << "Validation layer: " << p_callbackData->pMessage << std::endl
 				  << std::endl;
 
 		return VK_FALSE;
@@ -621,6 +625,7 @@ private:
 			// Define the clipping rectangle (scissor rectangle)
 			VkRect2D scissor {};
 			scissor.offset = { 0, 0 };
+			scissor.extent = m_swapchainExtent;
 
 			// Combine viewport and clipping rectangle
 			VkPipelineViewportStateCreateInfo viewportStateCreateInfo {};
@@ -837,30 +842,55 @@ private:
 		}
 	}
 
-	void CreateSemaphors()
+	void CreateSyncObjects()
 	{
+		// Resize the semaphore and fence vectors
+		m_imageAvailableSemaphores.resize( MAX_FRAMES_IN_FLIGHT );
+		m_renderFinishedSemaphores.resize( MAX_FRAMES_IN_FLIGHT );
+		m_inFlightFences.resize( MAX_FRAMES_IN_FLIGHT );
+		m_inFlightImages.resize( m_swapchainImages.size(), VK_NULL_HANDLE ); // Initialise to no fence
+
 		// Setup the semaphore create information
 		VkSemaphoreCreateInfo semaphoreCreateInfo {};
 		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-		// Create the semaphores
-		if ( vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphore ) != VK_SUCCESS ||
-			 vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphore ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to create semaphores" );
+		// Setup the fence create information
+		VkFenceCreateInfo fenceCreateInfo {};
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; // Start in the signaled state
+
+		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ ) // Create the semaphores for each frame
+		{
+			// Create the semaphores and the fence
+			if ( vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphores[i] ) != VK_SUCCESS ||
+				 vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphores[i] ) != VK_SUCCESS ||
+				 vkCreateFence( m_logicalDevice, &fenceCreateInfo, nullptr, &m_inFlightFences[i] ) != VK_SUCCESS )
+				throw std::runtime_error( "Failed to create syncronization objects for a frame" );
+		}
 	}
 
 	void DrawFrame()
 	{
+		// Wait for the frame to be finished before accessing it again
+		vkWaitForFences( m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, (uint64_t)-1 );
+
 		// Acquire the image from the swap chain (gets the index from the the swapchainImages array)
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR( m_logicalDevice, m_swapchain, (uint64_t)-1, m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex );
+		vkAcquireNextImageKHR( m_logicalDevice, m_swapchain, (uint64_t)-1, m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex );
+
+		// Wait on any frame that is using the assigned image
+		if ( m_inFlightImages[imageIndex] != VK_NULL_HANDLE ) // Is in use
+			vkWaitForFences( m_logicalDevice, 1, &m_inFlightImages[imageIndex], VK_TRUE, (uint64_t)-1 );
+
+		// Mark the image as being used by this frame
+		m_inFlightImages[imageIndex] = m_inFlightFences[m_currentFrame];
 
 		// Which semaphores and stages to wait on before execution
-		VkSemaphore			 waitSemaphores[] = { m_imageAvailableSemaphore };
+		VkSemaphore			 waitSemaphores[] = { m_imageAvailableSemaphores[m_currentFrame] };
 		VkPipelineStageFlags waitStages[]	  = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
 		// Specify the signal semaphores
-		VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphore }; // Semaphores to signal when the execution ends
+		VkSemaphore signalSemaphores[] = { m_renderFinishedSemaphores[m_currentFrame] }; // Semaphores to signal when the execution ends
 
 		// Submit the command buffer
 		VkSubmitInfo submitInfo {};
@@ -873,8 +903,11 @@ private:
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores	= signalSemaphores;
 
+		// Reset fence to an unsignaled state
+		vkResetFences( m_logicalDevice, 1, &m_inFlightFences[m_currentFrame] );
+
 		// Submit the command buffer to the queue
-		if ( vkQueueSubmit( m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE ) != VK_SUCCESS )
+		if ( vkQueueSubmit( m_graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame] ) != VK_SUCCESS )
 			throw std::runtime_error( "Failed to submit draw command buffer" );
 
 		// Specify the swapchain
@@ -892,6 +925,9 @@ private:
 
 		// Give the present image to the swap chain
 		vkQueuePresentKHR( m_presentQueue, &presentInfo );
+
+		// Increment the frames (Which of the in flight frames are being rendered)
+		m_currentFrame = ( m_currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
 	}
 
 	void MainLoop()
@@ -903,13 +939,20 @@ private:
 			// Draw the frame
 			DrawFrame();
 		}
+
+		// Wait until the logical device has finished all operations
+		vkDeviceWaitIdle( m_logicalDevice );
 	}
 
 	void Cleanup()
 	{
-		// Destroy the semaphores
-		vkDestroySemaphore( m_logicalDevice, m_imageAvailableSemaphore, nullptr );
-		vkDestroySemaphore( m_logicalDevice, m_renderFinishedSemaphore, nullptr );
+		// Destroy the syncronization objects for all frames
+		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
+		{
+			vkDestroySemaphore( m_logicalDevice, m_imageAvailableSemaphores[i], nullptr );
+			vkDestroySemaphore( m_logicalDevice, m_renderFinishedSemaphores[i], nullptr );
+			vkDestroyFence( m_logicalDevice, m_inFlightFences[i], nullptr );
+		}
 
 		// Destroy the command pool
 		vkDestroyCommandPool( m_logicalDevice, m_commandPool, nullptr );
@@ -937,12 +980,12 @@ private:
 		// Destroy the logical device
 		vkDestroyDevice( m_logicalDevice, nullptr );
 
-		// Destroy the window surface
-		vkDestroySurfaceKHR( m_instance, m_surface, nullptr );
-
 		// Destroy debug messenger if it exists
 		if ( ENABLE_VALIDATION_LAYERS )
 			DestroyDebugUtilsMessengerEXT( m_instance, m_debugMessenger, nullptr );
+
+		// Destroy the window surface
+		vkDestroySurfaceKHR( m_instance, m_surface, nullptr );
 
 		// Destroy the Vulkan instance
 		vkDestroyInstance( m_instance, nullptr );
