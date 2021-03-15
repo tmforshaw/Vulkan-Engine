@@ -865,7 +865,7 @@ private:
 			if ( vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_imageAvailableSemaphores[i] ) != VK_SUCCESS ||
 				 vkCreateSemaphore( m_logicalDevice, &semaphoreCreateInfo, nullptr, &m_renderFinishedSemaphores[i] ) != VK_SUCCESS ||
 				 vkCreateFence( m_logicalDevice, &fenceCreateInfo, nullptr, &m_inFlightFences[i] ) != VK_SUCCESS )
-				throw std::runtime_error( "Failed to create syncronization objects for a frame" );
+				throw std::runtime_error( "Failed to create syncronisation objects for a frame" );
 		}
 	}
 
@@ -946,7 +946,7 @@ private:
 
 	void Cleanup()
 	{
-		// Destroy the syncronization objects for all frames
+		// Destroy the syncronisation objects for all frames
 		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
 		{
 			vkDestroySemaphore( m_logicalDevice, m_imageAvailableSemaphores[i], nullptr );
