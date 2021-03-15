@@ -1,28 +1,20 @@
 #pragma once
 #include "DebugMessenger.hpp"
+#include "DeviceAndExtensions.hpp"
 #include "QueueFamilies.hpp"
 #include "Shaders.hpp"
 #include "Swapchain.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <cstring>
 #include <iostream>
-#include <set>
 #include <stdexcept>
 #include <vector>
 
 const uint16_t winWidth	 = 700;
 const uint16_t winHeight = 700;
 
-const char*	   validationLayers[]	= { "VK_LAYER_KHRONOS_validation" }; // The names of the validation layers
-const uint32_t validationLayerCount = 1;
-
-const char*	   deviceExtensions[]	= { VK_KHR_SWAPCHAIN_EXTENSION_NAME }; // The names of the required extensions
-const uint32_t deviceExtensionCount = 1;
-
-#define ENABLE_VALIDATION_LAYERS 1 // When in debug mode enable validation layers
-#define MAX_FRAMES_IN_FLIGHT	 2 // Maximum number of frames to process concurrently
+#define MAX_FRAMES_IN_FLIGHT 2 // Maximum number of frames to process concurrently
 
 class Application
 {
@@ -123,16 +115,6 @@ private:
 			throw std::runtime_error( "Failed to initialise debug messenger" );
 	}
 
-	void PopulateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT* createInfo )
-	{
-		*createInfo					= {};
-		createInfo->sType			= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		createInfo->messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT; // VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
-		createInfo->messageType		= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		createInfo->pfnUserCallback = DebugCallback;
-		createInfo->pUserData		= nullptr; // Optional data to send to DebugCallback
-	}
-
 	void CreateVulkanInstance()
 	{
 		// Enable validation layers
@@ -202,69 +184,6 @@ private:
 		std::cout << std::endl; // Padding
 	}
 
-	bool CheckValidationLayerSupport()
-	{
-		// Get the amount of instance layers supported
-		uint32_t layerCount;
-		vkEnumerateInstanceLayerProperties( &layerCount, nullptr );
-
-		// Get all the supported instance layers
-		VkLayerProperties supportedLayers[layerCount];
-		vkEnumerateInstanceLayerProperties( &layerCount, supportedLayers );
-
-		// Output the supported layers to the console
-		std::cout << "Supported instance layers (" << layerCount << "):" << std::endl;
-		for ( const auto& layer : supportedLayers )
-			std::cout << '\t' << layer.layerName << std::endl;
-
-		std::cout << std::endl; // Padding
-
-		// Check if the defined validation layers are in the set of supported layers
-		for ( const char* layerName : validationLayers ) // Iterate defined layers
-		{
-			bool layerFound = false;
-
-			for ( const auto& layerProperties : supportedLayers )		   // Iterate supported layers
-				if ( strcmp( layerName, layerProperties.layerName ) == 0 ) // Check for equality
-				{
-					layerFound = true;
-					break;
-				}
-
-			// No supported layer was found for this layer
-			if ( !layerFound ) return false;
-		}
-
-		// All layers were supported
-		return true;
-	}
-
-	std::vector<const char*> GetRequiredExtensions( uint32_t* glfwExtensionCount )
-	{
-		// Get the extensions that GLFW is using
-		const char** glfwExtensions = glfwGetRequiredInstanceExtensions( glfwExtensionCount );
-
-		// Create a vector with the extension names
-		std::vector<const char*> extensions( glfwExtensions, glfwExtensions + *glfwExtensionCount );
-
-		// Add the debug utilities extension
-		if ( ENABLE_VALIDATION_LAYERS )
-			extensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
-
-		// Increment glfwExtensionCount because another extension was added
-		*glfwExtensionCount += 1;
-
-		return extensions;
-	}
-
-	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* p_callbackData, void* p_userData )
-	{
-		std::cerr << "Validation layer: " << p_callbackData->pMessage << std::endl
-				  << std::endl;
-
-		return VK_FALSE;
-	}
-
 	void PickPhysicalDevice()
 	{
 		// Get the amount of GPUs available
@@ -283,7 +202,7 @@ private:
 		for ( const auto& device : devices )
 		{
 			// Set the class physical device to the first suitable device
-			if ( IsDeviceSuitable( device ) )
+			if ( IsDeviceSuitable( device, m_surface ) )
 			{
 				m_physicalDevice = device;
 				break;
@@ -293,29 +212,6 @@ private:
 		// Check if a device was found
 		if ( m_physicalDevice == VK_NULL_HANDLE )
 			throw std::runtime_error( "Failed to find a suitable GPU" ); // Device wasn't found
-	}
-
-	bool IsDeviceSuitable( const VkPhysicalDevice& p_device )
-	{
-		// Get the queue family indices
-		QueueFamilyIndices indices = FindQueueFamilies( p_device, m_surface );
-
-		// Check if the device is supported by the extensions
-		bool extensionSupported = CheckDeviceExtensionSupport( p_device );
-
-		// Check if the swap chain is sufficiently supported
-		bool swapchainSufficient = false;
-
-		if ( extensionSupported )
-		{
-			SwapchainSupportDetails swapchainSupport = QuerySwapchainSupport( p_device, m_surface );
-
-			// The swap chain has formats and present modes
-			swapchainSufficient = !( swapchainSupport.formats.empty() || swapchainSupport.presentModes.empty() );
-		}
-
-		// Check if the queue family can process the commands we want
-		return indices.IsComplete() && extensionSupported && swapchainSufficient;
 	}
 
 	void CreateLogicalDevice()
@@ -387,26 +283,6 @@ private:
 		// Create a platform agnostic window surface using GLFW
 		if ( glfwCreateWindowSurface( m_instance, m_window, nullptr, &m_surface ) != VK_SUCCESS )
 			throw std::runtime_error( "Failed to create window surface" );
-	}
-
-	bool CheckDeviceExtensionSupport( const VkPhysicalDevice& p_device )
-	{
-		// Get the amount of extensions
-		uint32_t extensionCount = 0;
-		vkEnumerateDeviceExtensionProperties( p_device, nullptr, &extensionCount, nullptr );
-
-		// Get the extension properties
-		VkExtensionProperties supportedExtensions[extensionCount];
-		vkEnumerateDeviceExtensionProperties( p_device, nullptr, &extensionCount, supportedExtensions );
-
-		// Create a set from the required extensions
-		std::set<std::string> requiredExtensions( std::begin( deviceExtensions ), std::end( deviceExtensions ) );
-
-		for ( const auto& extension : supportedExtensions )
-			requiredExtensions.erase( extension.extensionName ); // Remove it from the set if it is supported
-
-		// If all of the extensions were removed then they are all supported
-		return requiredExtensions.empty();
 	}
 
 	void CreateSwapchain()

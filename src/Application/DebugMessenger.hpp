@@ -1,6 +1,7 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <iostream>
 
 VkResult CreateDebugUtilsMessengerEXT(
 	VkInstance								  p_instance,
@@ -16,6 +17,24 @@ VkResult CreateDebugUtilsMessengerEXT(
 		return function( p_instance, p_createInfo, p_allocator, p_debugMessenger );
 	else
 		return VK_ERROR_EXTENSION_NOT_PRESENT; // Couldn't find function
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* p_callbackData, void* p_userData )
+{
+	std::cerr << "Validation layer: " << p_callbackData->pMessage << std::endl
+			  << std::endl;
+
+	return VK_FALSE;
+}
+
+void PopulateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT* createInfo )
+{
+	*createInfo					= {};
+	createInfo->sType			= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo->messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT; // VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+	createInfo->messageType		= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo->pfnUserCallback = DebugCallback;
+	createInfo->pUserData		= nullptr; // Optional data to send to DebugCallback
 }
 
 void DestroyDebugUtilsMessengerEXT(
