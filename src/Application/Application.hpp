@@ -44,6 +44,8 @@ private:
 	std::vector<VkFence>		 m_inFlightImages;
 	size_t						 m_currentFrame;
 
+	bool m_framebufferResized;
+
 	void InitVulkan()
 	{
 		// Create a Vulkan instance
@@ -62,10 +64,10 @@ private:
 		// Initialise the logical device
 		CreateLogicalDevice();
 
-		// Initialise the swap chain
+		// Initialise the swapchain
 		CreateSwapchain();
 
-		// Create image views for the swap chain images
+		// Create image views for the swapchain images
 		CreateImageViews();
 
 		// Create a render pass
@@ -83,6 +85,9 @@ private:
 		// Create the command buffers
 		CreateCommandBuffers();
 
+		// Set the current frame to zero
+		m_currentFrame = 0;
+
 		// Create the semaphores and fences
 		CreateSyncObjects();
 	}
@@ -95,10 +100,17 @@ private:
 		// Don't create an OpenGL context
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
 
-		glfwWindowHint( GLFW_RESIZABLE, GLFW_FALSE );
-
 		// Set the window variable
 		m_window = glfwCreateWindow( winWidth, winHeight, "Vulkan", nullptr, nullptr );
+
+		// State that the window hasn't been resized yet
+		m_framebufferResized = false;
+
+		// Get the window to point to this application
+		glfwSetWindowUserPointer( m_window, this );
+
+		// Create a window resize callback
+		glfwSetFramebufferSizeCallback( m_window, FramebufferResizeCallback );
 	}
 
 	void InitDebugMessenger()
@@ -113,6 +125,13 @@ private:
 		// Create the messenger and throw an error if it fails
 		if ( CreateDebugUtilsMessengerEXT( m_instance, &createInfo, nullptr, &m_debugMessenger ) != VK_SUCCESS )
 			throw std::runtime_error( "Failed to initialise debug messenger" );
+	}
+
+	static void FramebufferResizeCallback( GLFWwindow* p_window, int width, int height )
+	{
+		// Get the app from the window and set the framebufferResized variable
+		auto app				  = reinterpret_cast<Application*>( glfwGetWindowUserPointer( p_window ) );
+		app->m_framebufferResized = true;
 	}
 
 	void CreateVulkanInstance()
@@ -287,22 +306,22 @@ private:
 
 	void CreateSwapchain()
 	{
-		// Get the swap chain support details
+		// Get the swapchain support details
 		SwapchainSupportDetails swapchainSupport = QuerySwapchainSupport( m_physicalDevice, m_surface );
 
-		// Pick the best properties for the swap chain from the available settings
+		// Pick the best properties for the swapchain from the available settings
 		VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat( swapchainSupport.formats );
 		VkPresentModeKHR   presentMode	 = ChooseSwapPresentMode( swapchainSupport.presentModes );
 		VkExtent2D		   extent		 = ChooseSwapExtent( swapchainSupport.capabilities, m_window );
 
-		// Specify the minimum number of images for the swap chain to function
+		// Specify the minimum number of images for the swapchain to function
 		uint32_t imageCount = swapchainSupport.capabilities.minImageCount + 1;
 
 		// Ensure the image count doesn't exceed the maximum number allowed (If it is zero there is no maximum)
 		if ( swapchainSupport.capabilities.maxImageCount > 0 && imageCount > swapchainSupport.capabilities.maxImageCount )
 			imageCount = swapchainSupport.capabilities.maxImageCount;
 
-		// Setup the create info for the swap chain
+		// Setup the create info for the swapchain
 		VkSwapchainCreateInfoKHR createInfo {};
 		createInfo.sType			= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 		createInfo.surface			= m_surface;
@@ -311,9 +330,9 @@ private:
 		createInfo.imageColorSpace	= surfaceFormat.colorSpace;
 		createInfo.imageExtent		= extent;
 		createInfo.imageArrayLayers = 1;								   // Number of layers that each image consists of (useful for stereoscopic rendering)
-		createInfo.imageUsage		= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // The way in which the swap chain is used
+		createInfo.imageUsage		= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // The way in which the swapchain is used
 
-		// Define how the swap chain handles images across multiple queue families
+		// Define how the swapchain handles images across multiple queue families
 		QueueFamilyIndices indices				= FindQueueFamilies( m_physicalDevice, m_surface );
 		uint32_t		   queueFamilyIndices[] = {
 			  indices.graphicsFamily.value(), indices.presentFamily.value()
@@ -338,14 +357,14 @@ private:
 		createInfo.presentMode = presentMode;
 		createInfo.clipped	   = VK_TRUE;
 
-		// The swap chain requires a reference to the old swap chain incase it needs recreated
+		// The swapchain requires a reference to the old swapchain incase it needs recreated
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		// Create the swap chain
+		// Create the swapchain
 		if ( vkCreateSwapchainKHR( m_logicalDevice, &createInfo, nullptr, &m_swapchain ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to create swap chain" );
+			throw std::runtime_error( "Failed to create swapchain" );
 
-		// Retrieve the swap chain images
+		// Retrieve the swapchain images
 		vkGetSwapchainImagesKHR( m_logicalDevice, m_swapchain, &imageCount, nullptr );
 		m_swapchainImages.resize( imageCount );
 		vkGetSwapchainImagesKHR( m_logicalDevice, m_swapchain, &imageCount, m_swapchainImages.data() );
@@ -363,7 +382,7 @@ private:
 		// Declare a create information struct for the image views
 		VkImageViewCreateInfo createInfo {};
 
-		// Iterate over the swap chain images
+		// Iterate over the swapchain images
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
 		{
 			// Set the create info
@@ -398,7 +417,7 @@ private:
 		VkAttachmentDescription colourAttatchment {};
 		colourAttatchment.format		 = m_swapchainImageFormat;
 		colourAttatchment.samples		 = VK_SAMPLE_COUNT_1_BIT;
-		colourAttatchment.loadOp		 = VK_ATTACHMENT_LOAD_OP_CLEAR;	 // Clear the frame buffer to black each frame
+		colourAttatchment.loadOp		 = VK_ATTACHMENT_LOAD_OP_CLEAR;	 // Clear the framebuffer to black each frame
 		colourAttatchment.storeOp		 = VK_ATTACHMENT_STORE_OP_STORE; // Store the contents into memory
 		colourAttatchment.stencilLoadOp	 = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colourAttatchment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -615,10 +634,10 @@ private:
 
 	void CreateFramebuffers()
 	{
-		// Resize the framebuffer vector to hold all the frame buffers
+		// Resize the framebuffer vector to hold all the framebuffers
 		m_swapchainFramebuffers.resize( m_swapchainImageViews.size() );
 
-		// Create frame buffers from the image views
+		// Create framebuffers from the image views
 		for ( size_t i = 0; i < m_swapchainImageViews.size(); i++ )
 		{
 			// Create an image view array
@@ -636,7 +655,7 @@ private:
 			framebufferCreateInfo.height		  = m_swapchainExtent.height;
 			framebufferCreateInfo.layers		  = 1;
 
-			// Create the frame buffer
+			// Create the framebuffer
 			if ( vkCreateFramebuffer( m_logicalDevice, &framebufferCreateInfo, nullptr, &m_swapchainFramebuffers[i] ) != VK_SUCCESS )
 				throw std::runtime_error( "Failed to create framebuffer" );
 		}
@@ -745,14 +764,51 @@ private:
 		}
 	}
 
+	void RecreateSwapchain()
+	{
+		// Get the width and height of the framebuffer
+		int width = 0, height = 0;
+		glfwGetFramebufferSize( m_window, &width, &height );
+
+		// Wait until the framebuffer has a size
+		while ( width == 0 || height == 0 )
+		{
+			// Get the width and height of the framebuffer
+			glfwGetFramebufferSize( m_window, &width, &height );
+			glfwWaitEvents(); // Wait until there is a GLFW event
+		}
+
+		// Wait for the logical device has completed its operations
+		vkDeviceWaitIdle( m_logicalDevice );
+
+		// Destroy all the old versions
+		CleanupSwapchain();
+
+		// Call the creation functions to recreate the swapchain and all dependencies of it
+		CreateSwapchain();
+		CreateImageViews();
+		CreateRenderPass();
+		CreateGraphicsPipeline(); // This can be avoided by using dynamic states for the scissor and viewport
+		CreateFramebuffers();
+		CreateCommandBuffers();
+	}
+
 	void DrawFrame()
 	{
 		// Wait for the frame to be finished before accessing it again
 		vkWaitForFences( m_logicalDevice, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, (uint64_t)-1 );
 
-		// Acquire the image from the swap chain (gets the index from the the swapchainImages array)
+		// Acquire the image from the swapchain (gets the index from the the swapchainImages array)
+		// And recreate the swapchain if it is out of date
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR( m_logicalDevice, m_swapchain, (uint64_t)-1, m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex );
+		VkResult result = vkAcquireNextImageKHR( m_logicalDevice, m_swapchain, (uint64_t)-1, m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex );
+		if ( result == VK_ERROR_OUT_OF_DATE_KHR )
+		{
+			RecreateSwapchain();
+			return;
+		}
+		else if ( !( result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR ) )
+			throw std::runtime_error( "Failed to acquire swapchain image" );
 
 		// Wait on any frame that is using the assigned image
 		if ( m_inFlightImages[imageIndex] != VK_NULL_HANDLE ) // Is in use
@@ -799,8 +855,16 @@ private:
 		presentInfo.pImageIndices	   = &imageIndex;
 		presentInfo.pResults		   = nullptr;
 
-		// Give the present image to the swap chain
-		vkQueuePresentKHR( m_presentQueue, &presentInfo );
+		// Give the present image to the swapchain and recreate swapchain if it is out of date
+		result = vkQueuePresentKHR( m_presentQueue, &presentInfo );
+		if ( result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_framebufferResized )
+		{
+			m_framebufferResized = false;
+			RecreateSwapchain();
+			return;
+		}
+		else if ( result != VK_SUCCESS )
+			throw std::runtime_error( "Failed to present swapchain image" );
 
 		// Increment the frames (Which of the in flight frames are being rendered)
 		m_currentFrame = ( m_currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
@@ -820,22 +884,14 @@ private:
 		vkDeviceWaitIdle( m_logicalDevice );
 	}
 
-	void Cleanup()
+	void CleanupSwapchain()
 	{
-		// Destroy the syncronisation objects for all frames
-		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
-		{
-			vkDestroySemaphore( m_logicalDevice, m_imageAvailableSemaphores[i], nullptr );
-			vkDestroySemaphore( m_logicalDevice, m_renderFinishedSemaphores[i], nullptr );
-			vkDestroyFence( m_logicalDevice, m_inFlightFences[i], nullptr );
-		}
-
-		// Destroy the command pool
-		vkDestroyCommandPool( m_logicalDevice, m_commandPool, nullptr );
-
 		// Destroy the framebuffers
 		for ( const auto& framebuffer : m_swapchainFramebuffers )
 			vkDestroyFramebuffer( m_logicalDevice, framebuffer, nullptr );
+
+		// Destroy the command buffers (As opposed to destroying the command pool)
+		vkFreeCommandBuffers( m_logicalDevice, m_commandPool, static_cast<uint32_t>( m_commandBuffers.size() ), m_commandBuffers.data() );
 
 		// Destroy the graphics pipeline
 		vkDestroyPipeline( m_logicalDevice, m_graphicsPipeline, nullptr );
@@ -850,8 +906,25 @@ private:
 		for ( const auto& imageView : m_swapchainImageViews )
 			vkDestroyImageView( m_logicalDevice, imageView, nullptr );
 
-		// Destroy the swap chain
+		// Destroy the swapchain
 		vkDestroySwapchainKHR( m_logicalDevice, m_swapchain, nullptr );
+	}
+
+	void Cleanup()
+	{
+		// Destroy the swapchain and all dependencies
+		CleanupSwapchain();
+
+		// Destroy the syncronisation objects for all frames
+		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
+		{
+			vkDestroySemaphore( m_logicalDevice, m_imageAvailableSemaphores[i], nullptr );
+			vkDestroySemaphore( m_logicalDevice, m_renderFinishedSemaphores[i], nullptr );
+			vkDestroyFence( m_logicalDevice, m_inFlightFences[i], nullptr );
+		}
+
+		// Destroy the command pool
+		vkDestroyCommandPool( m_logicalDevice, m_commandPool, nullptr );
 
 		// Destroy the logical device
 		vkDestroyDevice( m_logicalDevice, nullptr );

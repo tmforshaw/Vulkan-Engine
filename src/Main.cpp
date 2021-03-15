@@ -1,8 +1,5 @@
 #include "Application/Application.hpp"
 
-// #include <iostream>
-// #include <stdexcept>
-
 int main()
 {
 	Application app;
