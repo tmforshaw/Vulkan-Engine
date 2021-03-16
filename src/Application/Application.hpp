@@ -4,6 +4,7 @@
 #include "QueueFamilies.hpp"
 #include "Shaders.hpp"
 #include "Swapchain.hpp"
+#include "Vertex.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -43,6 +44,8 @@ private:
 	std::vector<VkFence>		 m_inFlightFences;
 	std::vector<VkFence>		 m_inFlightImages;
 	size_t						 m_currentFrame;
+	VkBuffer					 m_vertexBuffer;
+	VkDeviceMemory				 m_vertexBufferMemory;
 
 	bool m_framebufferResized;
 
@@ -81,6 +84,9 @@ private:
 
 		// Create the command pool
 		CreateCommandPool();
+
+		// Create a vertex buffer
+		CreateVertexBuffer();
 
 		// Create the command buffers
 		CreateCommandBuffers();
@@ -491,16 +497,20 @@ private:
 			fragShaderStageInfo.pName				= "main";  // Entry point
 			fragShaderStageInfo.pSpecializationInfo = nullptr; // Set shader constants
 
-			// Create an array with the structs
+			// Create an array with the shader stage information
 			VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+			// Get the vertex binding and attribute descriptions
+			auto bindingDescription	   = Vertex::GetBindingDescription();
+			auto attributeDescriptions = Vertex::GetAttributeDescriptions();
 
 			// Setup structure of the vertex data using create information
 			VkPipelineVertexInputStateCreateInfo vertexInputInfo {};
 			vertexInputInfo.sType							= VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-			vertexInputInfo.vertexBindingDescriptionCount	= 0;
-			vertexInputInfo.pVertexBindingDescriptions		= nullptr; // Array of structs to describe vertex data
-			vertexInputInfo.vertexAttributeDescriptionCount = 0;
-			vertexInputInfo.pVertexAttributeDescriptions	= nullptr;
+			vertexInputInfo.vertexBindingDescriptionCount	= 1;
+			vertexInputInfo.pVertexBindingDescriptions		= &bindingDescription;
+			vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>( attributeDescriptions.size() );
+			vertexInputInfo.pVertexAttributeDescriptions	= attributeDescriptions.data();
 
 			// Describe the primitive which will be drawn and if primitive restart should be enabled
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo {};
@@ -725,8 +735,13 @@ private:
 			// Record the binding of the graphics pipeline
 			vkCmdBindPipeline( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline );
 
+			// Bind the vertex buffers
+			VkBuffer	 vertexBuffers[] = { m_vertexBuffer };
+			VkDeviceSize offsets[]		 = { 0 };
+			vkCmdBindVertexBuffers( m_commandBuffers[i], 0, 1, vertexBuffers, offsets );
+
 			// Record the drawing of the triangle
-			vkCmdDraw( m_commandBuffers[i], 3, 1, 0, 0 );
+			vkCmdDraw( m_commandBuffers[i], static_cast<uint32_t>( vertices.size() ), 1, 0, 0 );
 
 			// Record the end of the render pass
 			vkCmdEndRenderPass( m_commandBuffers[i] );
@@ -762,6 +777,64 @@ private:
 				 vkCreateFence( m_logicalDevice, &fenceCreateInfo, nullptr, &m_inFlightFences[i] ) != VK_SUCCESS )
 				throw std::runtime_error( "Failed to create syncronisation objects for a frame" );
 		}
+	}
+
+	void CreateVertexBuffer()
+	{
+		// Setup the create information for the vertex buffer
+		VkBufferCreateInfo bufferCreateInfo {};
+		bufferCreateInfo.sType		 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferCreateInfo.size		 = vertices.size() * sizeof( Vertex );
+		bufferCreateInfo.usage		 = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		bufferCreateInfo.flags		 = 0;
+
+		// Create the vertex buffer
+		if ( vkCreateBuffer( m_logicalDevice, &bufferCreateInfo, nullptr, &m_vertexBuffer ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to create vertex buffer" );
+
+		// Setup the memory requirements for the vertex buffer
+		VkMemoryRequirements memRequirements {};
+		vkGetBufferMemoryRequirements( m_logicalDevice, m_vertexBuffer, &memRequirements );
+
+		// Setup the allocation information for the vertex buffer
+		VkMemoryAllocateInfo vertexBufferAllocInfo {};
+		vertexBufferAllocInfo.sType			  = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		vertexBufferAllocInfo.allocationSize  = memRequirements.size;
+		vertexBufferAllocInfo.memoryTypeIndex = FindMemoryType( memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ); // Find a memory type with the correct properties
+
+		// Allocate the memory of the vertex buffer
+		if ( vkAllocateMemory( m_logicalDevice, &vertexBufferAllocInfo, nullptr, &m_vertexBufferMemory ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to allocate vertex buffer memory" );
+
+		// Associate the memory with the vertex buffer
+		vkBindBufferMemory( m_logicalDevice, m_vertexBuffer, m_vertexBufferMemory, 0 );
+
+		// Fill the vertex buffer with data (Map the buffer memory into CPU accessible memory)
+		void* mappedMemPtr;
+		vkMapMemory( m_logicalDevice, m_vertexBufferMemory, 0, bufferCreateInfo.size, 0, &mappedMemPtr );
+
+		// Copy the vertices into the memory address
+		memcpy( mappedMemPtr, vertices.data(), (size_t)bufferCreateInfo.size );
+
+		// Remove the mapping to CPU accessible memory
+		vkUnmapMemory( m_logicalDevice, m_vertexBufferMemory );
+	}
+
+	uint32_t FindMemoryType( uint32_t typeFilter, VkMemoryPropertyFlags properties )
+	{
+		// Get the GPU memory properties
+		VkPhysicalDeviceMemoryProperties memProperities;
+		vkGetPhysicalDeviceMemoryProperties( m_physicalDevice, &memProperities );
+
+		// Find a suitable memory type
+		for ( uint32_t i = 0; i < memProperities.memoryTypeCount; i++ )
+			if ( typeFilter & ( 1 << i ) &&													  // The type of memory is suitable
+				 ( memProperities.memoryTypes[i].propertyFlags & properties ) == properties ) // The memory has the correct properties
+				return i;																	  // Return the index of a suitable memory type
+
+		// No memory type was found
+		throw std::runtime_error( "Failed to find suitable memory type" );
 	}
 
 	void RecreateSwapchain()
@@ -914,6 +987,10 @@ private:
 	{
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
+
+		// Destroy the vertex buffer and its memory
+		vkDestroyBuffer( m_logicalDevice, m_vertexBuffer, nullptr );
+		vkFreeMemory( m_logicalDevice, m_vertexBufferMemory, nullptr );
 
 		// Destroy the syncronisation objects for all frames
 		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )
