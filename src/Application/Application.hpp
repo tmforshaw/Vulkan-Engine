@@ -574,7 +574,7 @@ private:
 			rasteriserCreateInfo.rasterizerDiscardEnable = VK_FALSE; // Disable output to geometry shader (disable output to framebuffer)
 			rasteriserCreateInfo.polygonMode			 = VK_POLYGON_MODE_FILL;
 			rasteriserCreateInfo.lineWidth				 = 1.0f;
-			rasteriserCreateInfo.cullMode				 = VK_CULL_MODE_BACK_BIT;			// Cull back faces
+			rasteriserCreateInfo.cullMode				 = 0;								// Cull back faces
 			rasteriserCreateInfo.frontFace				 = VK_FRONT_FACE_COUNTER_CLOCKWISE; // Anti-clockwise because of the flipped y axis
 			rasteriserCreateInfo.depthBiasEnable		 = VK_FALSE;						// Enable alteration of depth values
 			rasteriserCreateInfo.depthBiasConstantFactor = 0.0f;
