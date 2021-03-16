@@ -1,25 +1,28 @@
-PROJECTNAME = VulkanEngine
+PROJECT_NAME = VulkanEngine
 
 CC = clang++
-CFLAGS = -std=c++2a -Wall -O2
-LINKFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
+C_FLAGS = -std=c++2a -Wall -O2 -I$(STB_IMAGE_PATH)
+LINK_FLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
-BUILDDIR := bin
-OBJDIR := lib
-SRCDIR := src
-DEPENDDIR := dependencies
-SHADERDIR := shaders
+BUILD_DIR := bin
+OBJ_DIR := lib
+SRC_DIR := src
+DEPEND_DIR := dependencies
+RESOURCE_DIR = resources
+SHADER_DIR := shaders
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 
-SRC = $(call rwildcard,$(SRCDIR),*.cpp)
-DEPENDSRC := $(call rwildcard,$(DEPENDDIR),*.cpp)
-DEPENDSRC += $(call rwildcard,$(DEPENDDIR),*.c)
+SRC = $(call rwildcard,$(SRC_DIR),*.cpp)
+DEPEND_SRC := $(call rwildcard,$(DEPEND_DIR),*.cpp)
+DEPEND_SRC += $(call rwildcard,$(DEPEND_DIR),*.c)
 
-OBJS := $(patsubst $(SRCDIR)/%.cpp, $(OBJDIR)/%.o, $(SRC)) # SRC objects
-OBJS += $(patsubst $(DEPENDDIR)/%.cpp, $(OBJDIR)/$(DEPENDDIR)/%.o,$(patsubst $(DEPENDDIR)/%.c, $(OBJDIR)/$(DEPENDDIR)/%.o, $(DEPENDSRC))) # Dependency objects
+STB_IMAGE_PATH = $(DEPEND_DIR)/stb_image.h
 
-SHADERS := $(patsubst $(SHADERDIR)/%.GLSL, $(OBJDIR)/$(SHADERDIR)/%.spv, $(call rwildcard, $(SHADERDIR), *.GLSL) ) # Shaders
+OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC)) # SRC objects
+OBJS += $(patsubst $(DEPEND_DIR)/%.cpp, $(OBJ_DIR)/$(DEPEND_DIR)/%.o,$(patsubst $(DEPEND_DIR)/%.c, $(OBJ_DIR)/$(DEPEND_DIR)/%.o, $(DEPEND_SRC))) # Dependency objects
+
+SHADERS := $(patsubst $(RESOURCE_DIR)/$(SHADER_DIR)/%.GLSL, $(OBJ_DIR)/$(SHADER_DIR)/%.spv, $(call rwildcard, $(RESOURCE_DIR)/$(SHADER_DIR), *.GLSL) ) # Shaders
 
 .PHONY: temp
 temp:
@@ -27,57 +30,57 @@ temp:
 
 # Build the project
 .PHONY: build
-build: $(OBJS) $(BUILDDIR)/$(PROJECTNAME).bin
-	@echo !-- Built $(PROJECTNAME).bin --!
+build: $(OBJS) $(BUILD_DIR)/$(PROJECT_NAME).bin
+	@echo !-- Built $(PROJECT_NAME).bin --!
 
 # Create the necessary folders
 .PHONY: setup
 setup:
 	@echo !-- Setting Up Environment --!
-	@mkdir -p $(BUILDDIR)
-	@mkdir -p $(OBJDIR)
-	@mkdir -p $(DEPENDDIR)
+	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(DEPEND_DIR)
 
 # Remove unneeded files
 .PHONY: clean
 clean:
 	@echo !-- Cleaning Folders --!
-	@rm -rf $(BUILDDIR)/*
+	@rm -rf $(BUILD_DIR)/*
 
 	@# @mkdir -p temp
-	@# @cp -r $(OBJDIR)/$(DEPENDDIR) temp
-	@rm -rf $(OBJDIR)/*
+	@# @cp -r $(OBJ_DIR)/$(DEPEND_DIR) temp
+	@rm -rf $(OBJ_DIR)/*
 	
-	@# @cp -r temp/$(DEPENDDIR) $(OBJDIR)
+	@# @cp -r temp/$(DEPEND_DIR) $(OBJ_DIR)
 	@# @rm -r temp
 
 # Remove unneeded files and dependency objects
 .PHONY: full-clean
 full-clean:
 	@echo !-- Cleaning Folders - Including Dependencies --!
-	@rm -rf $(BUILDDIR)/*
-	@rm -rf $(OBJDIR)/*
+	@rm -rf $(BUILD_DIR)/*
+	@rm -rf $(OBJ_DIR)/*
 
 # Compile the individual cpp files
-$(OBJDIR)/%.o: $(SRCDIR)/%.cpp
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@echo !-- Compiling $^ --!
 	@mkdir -p $(@D)
-	@$(CC) -c $^ -o $@ $(CFLAGS)
+	@$(CC) -c $^ -o $@ $(C_FLAGS)
 
 # Compile the individual dependency c files
-$(OBJDIR)/$(DEPENDDIR)/%.o: $(DEPENDDIR)/%.c
+$(OBJ_DIR)/$(DEPEND_DIR)/%.o: $(DEPEND_DIR)/%.c
 	@echo !-- Compiling $^ --!
 	@mkdir -p $(@D)
-	@$(CC) -c $^ -o $@ $(CFLAGS)
+	@$(CC) -c $^ -o $@ $(C_FLAGS)
 
 # Compile the individual dependency cpp files
-$(OBJDIR)/$(DEPENDDIR)/%.o: $(DEPENDDIR)/%.cpp
+$(OBJ_DIR)/$(DEPEND_DIR)/%.o: $(DEPEND_DIR)/%.cpp
 	@echo !-- Compiling $^ --!
 	@mkdir -p $(@D)
-	@$(CC) -c $^ -o $@ $(CFLAGS)
+	@$(CC) -c $^ -o $@ $(C_FLAGS)
 
 # Compile the individual shaders
-$(OBJDIR)/$(SHADERDIR)/%.spv: $(SHADERDIR)/%.GLSL
+$(OBJ_DIR)/$(SHADER_DIR)/%.spv: $(RESOURCE_DIR)/$(SHADER_DIR)/%.GLSL
 	@echo !-- Compiling $^ --!
 	@mkdir -p temp/$(^D)
 	@cp -r $^ temp/$(basename $^)
@@ -87,13 +90,13 @@ $(OBJDIR)/$(SHADERDIR)/%.spv: $(SHADERDIR)/%.GLSL
 	@rm -r temp
 
 # Link the files together
-$(BUILDDIR)/$(PROJECTNAME).bin: $(OBJS)
+$(BUILD_DIR)/$(PROJECT_NAME).bin: $(OBJS)
 	@echo !-- Linking $^ --!
-	@$(CC) -o $@ $^ $(LINKFLAGS)
+	@$(CC) -o $@ $^ $(LINK_FLAGS)
 
 # Run the project as an executable
 .PHONY: run
 run: build $(SHADERS)
 	@echo !-- Running --!
 	@echo # Console padding
-	@./$(BUILDDIR)/$(PROJECTNAME).bin
+	@./$(BUILD_DIR)/$(PROJECT_NAME).bin

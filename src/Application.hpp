@@ -1,12 +1,12 @@
 #pragma once
-#include "Buffers.hpp"
-#include "DebugMessenger.hpp"
-#include "DeviceAndExtensions.hpp"
-#include "QueueFamilies.hpp"
-#include "Shaders.hpp"
-#include "Swapchain.hpp"
-#include "UniformBuffers.hpp"
-#include "Vertex.hpp"
+#include "Buffers/Buffers.hpp"
+#include "Buffers/UniformBuffers.hpp"
+#include "Buffers/Vertex.hpp"
+#include "Graphics/Shaders.hpp"
+#include "VulkanUtil/DebugMessenger.hpp"
+#include "VulkanUtil/DeviceAndExtensions.hpp"
+#include "VulkanUtil/QueueFamilies.hpp"
+#include "VulkanUtil/Swapchain.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -99,6 +99,9 @@ private:
 
 		// Create the command pool
 		CreateCommandPool();
+
+		// Create a texture
+		CreateTextureImage();
 
 		// Create a vertex buffer
 		CreateVertexBuffer();
@@ -922,6 +925,10 @@ private:
 			// Update the descriptor set
 			vkUpdateDescriptorSets( m_logicalDevice, 1, &descriptorWrite, 0, nullptr );
 		}
+	}
+
+	void CreateTextureImage()
+	{
 	}
 
 	void RecreateSwapchain()
