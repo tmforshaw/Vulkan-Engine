@@ -1,6 +1,7 @@
 #pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <cstring>
 #include <stdexcept>
 
 static uint32_t FindMemoryType( const VkPhysicalDevice& p_physicalDevice, const uint32_t& typeFilter, const VkMemoryPropertyFlags& properties )
@@ -97,4 +98,34 @@ void CopyBuffer( const VkDevice& p_logicalDevice, const VkCommandPool& p_command
 
 	// Free the command buffer
 	vkFreeCommandBuffers( p_logicalDevice, p_commandPool, 1, &commandBuffer );
+}
+
+void CreateBufferViaStagingBuffer( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkDeviceSize& p_size, const void* p_data, const VkBufferUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, VkBuffer* p_buffer, VkDeviceMemory* p_bufferMemory )
+{
+	// Setup the staging buffer
+	VkBuffer	   stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	// Create a staging buffer
+	CreateBuffer( p_logicalDevice, p_physicalDevice, p_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
+
+	// Fill the staging buffer with data (Map the buffer memory into CPU accessible memory)
+	void* mappedMemPtr;
+	vkMapMemory( p_logicalDevice, stagingBufferMemory, 0, p_size, 0, &mappedMemPtr );
+
+	// Copy the vertices into the memory address
+	std::memcpy( mappedMemPtr, p_data, (size_t)p_size );
+
+	// Remove the mapping to CPU accessible memory
+	vkUnmapMemory( p_logicalDevice, stagingBufferMemory );
+
+	// Create the vertex buffer
+	CreateBuffer( p_logicalDevice, p_physicalDevice, p_size, p_usage, p_properties, p_buffer, p_bufferMemory );
+
+	// Copy the data from the staging buffer to the vertex buffer
+	CopyBuffer( p_logicalDevice, p_commandPool, p_graphicsQueue, stagingBuffer, *p_buffer, p_size );
+
+	// Destroy the staging buffer and free it's memory
+	vkDestroyBuffer( p_logicalDevice, stagingBuffer, nullptr );
+	vkFreeMemory( p_logicalDevice, stagingBufferMemory, nullptr );
 }

@@ -47,6 +47,8 @@ private:
 	size_t						 m_currentFrame;
 	VkBuffer					 m_vertexBuffer;
 	VkDeviceMemory				 m_vertexBufferMemory;
+	VkBuffer					 m_indexBuffer;
+	VkDeviceMemory				 m_indexBufferMemory;
 
 	bool m_framebufferResized;
 
@@ -88,6 +90,9 @@ private:
 
 		// Create a vertex buffer
 		CreateVertexBuffer();
+
+		// Create an index buffer
+		CreateIndexBuffer();
 
 		// Create the command buffers
 		CreateCommandBuffers();
@@ -741,8 +746,11 @@ private:
 			VkDeviceSize offsets[]		 = { 0 };
 			vkCmdBindVertexBuffers( m_commandBuffers[i], 0, 1, vertexBuffers, offsets );
 
+			// Bind the index buffers
+			vkCmdBindIndexBuffer( m_commandBuffers[i], m_indexBuffer, 0, INDEX_BUFFER_TYPE );
+
 			// Record the drawing of the triangle
-			vkCmdDraw( m_commandBuffers[i], static_cast<uint32_t>( vertices.size() ), 1, 0, 0 );
+			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( indices.size() ), 1, 0, 0, 0 );
 
 			// Record the end of the render pass
 			vkCmdEndRenderPass( m_commandBuffers[i] );
@@ -782,35 +790,16 @@ private:
 
 	void CreateVertexBuffer()
 	{
-		// Set the buffer size
-		VkDeviceSize bufferSize = vertices.size() * sizeof( Vertex );
+		// Create a vertex buffer using a staging buffer
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
+									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
+	}
 
-		// Setup the staging buffer
-		VkBuffer	   stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-
-		// Create a staging buffer
-		CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
-
-		// Fill the staging buffer with data (Map the buffer memory into CPU accessible memory)
-		void* mappedMemPtr;
-		vkMapMemory( m_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &mappedMemPtr );
-
-		// Copy the vertices into the memory address
-		memcpy( mappedMemPtr, vertices.data(), (size_t)bufferSize );
-
-		// Remove the mapping to CPU accessible memory
-		vkUnmapMemory( m_logicalDevice, stagingBufferMemory );
-
-		// Create the vertex buffer
-		CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
-
-		// Copy the data from the staging buffer to the vertex buffer
-		CopyBuffer( m_logicalDevice, m_commandPool, m_graphicsQueue, stagingBuffer, m_vertexBuffer, bufferSize );
-
-		// Destroy the staging buffer and free it's memory
-		vkDestroyBuffer( m_logicalDevice, stagingBuffer, nullptr );
-		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
+	void CreateIndexBuffer()
+	{
+		// Create an index buffer using a staging buffer
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
+									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_indexBuffer, &m_indexBufferMemory );
 	}
 
 	void RecreateSwapchain()
@@ -967,6 +956,10 @@ private:
 		// Destroy the vertex buffer and free its memory
 		vkDestroyBuffer( m_logicalDevice, m_vertexBuffer, nullptr );
 		vkFreeMemory( m_logicalDevice, m_vertexBufferMemory, nullptr );
+
+		// Destroy the index buffer an free its memory
+		vkDestroyBuffer( m_logicalDevice, m_indexBuffer, nullptr );
+		vkFreeMemory( m_logicalDevice, m_indexBufferMemory, nullptr );
 
 		// Destroy the syncronisation objects for all frames
 		for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++ )

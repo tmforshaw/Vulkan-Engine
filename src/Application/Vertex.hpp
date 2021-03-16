@@ -43,13 +43,16 @@ struct Vertex
 	}
 };
 
-#define pi 3.1415926f
+const std::vector<Vertex> vertices = {
+	{ { -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
+	{ { 0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f } },
+	{ { 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } },
+	{ { -0.5f, 0.5f }, { 1.0f, 1.0f, 1.0f } }
+};
 
-#define TRIANGLE_HEIGHT sin( pi / 3 ) / 2
+const std::vector<uint16_t> indices = {
+	0, 1, 2, 2, 3, 0
+};
 
-const std::vector<Vertex>
-	vertices = {
-		{ { 0.0f, -TRIANGLE_HEIGHT }, { 1.0f, 0.0f, 1.0f } },
-		{ { 0.5f, TRIANGLE_HEIGHT }, { 0.0f, 1.0f, 1.0f } },
-		{ { -0.5f, TRIANGLE_HEIGHT }, { 1.0f, 1.0f, 0.0f } }
-	};
+// Define the type of int used in the indices vector
+#define INDEX_BUFFER_TYPE VK_INDEX_TYPE_UINT16 // VK_INDEX_TYPE_TYPE_UINT32
