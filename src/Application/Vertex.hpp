@@ -49,7 +49,7 @@ struct Vertex
 
 const std::vector<Vertex>
 	vertices = {
-		{ { 0.0f, -TRIANGLE_HEIGHT }, { 1.0f, 0.0f, 0.0f } },
-		{ { 0.5f, TRIANGLE_HEIGHT }, { 0.0f, 1.0f, 0.0f } },
-		{ { -0.5f, TRIANGLE_HEIGHT }, { 0.0f, 0.0f, 1.0f } }
+		{ { 0.0f, -TRIANGLE_HEIGHT }, { 1.0f, 0.0f, 1.0f } },
+		{ { 0.5f, TRIANGLE_HEIGHT }, { 0.0f, 1.0f, 1.0f } },
+		{ { -0.5f, TRIANGLE_HEIGHT }, { 1.0f, 1.0f, 0.0f } }
 	};

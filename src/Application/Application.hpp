@@ -1,4 +1,5 @@
 #pragma once
+#include "Buffers.hpp"
 #include "DebugMessenger.hpp"
 #include "DeviceAndExtensions.hpp"
 #include "QueueFamilies.hpp"
@@ -714,7 +715,7 @@ private:
 
 			// Create the command buffer
 			if ( vkBeginCommandBuffer( m_commandBuffers[i], &commandBufferBeginInfo ) != VK_SUCCESS )
-				throw std::runtime_error( "Failed to begin recording command buffer[" + std::to_string( i ) + "]" );
+				throw std::runtime_error( "Failed to begin recording to command buffer[" + std::to_string( i ) + "]" );
 
 			// Set a clear colour
 			VkClearValue clearColour = { { { 0.0f, 0.0f, 0.0f, 1.0f } } };
@@ -781,60 +782,35 @@ private:
 
 	void CreateVertexBuffer()
 	{
-		// Setup the create information for the vertex buffer
-		VkBufferCreateInfo bufferCreateInfo {};
-		bufferCreateInfo.sType		 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferCreateInfo.size		 = vertices.size() * sizeof( Vertex );
-		bufferCreateInfo.usage		 = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		bufferCreateInfo.flags		 = 0;
+		// Set the buffer size
+		VkDeviceSize bufferSize = vertices.size() * sizeof( Vertex );
 
-		// Create the vertex buffer
-		if ( vkCreateBuffer( m_logicalDevice, &bufferCreateInfo, nullptr, &m_vertexBuffer ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to create vertex buffer" );
+		// Setup the staging buffer
+		VkBuffer	   stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
 
-		// Setup the memory requirements for the vertex buffer
-		VkMemoryRequirements memRequirements {};
-		vkGetBufferMemoryRequirements( m_logicalDevice, m_vertexBuffer, &memRequirements );
+		// Create a staging buffer
+		CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
 
-		// Setup the allocation information for the vertex buffer
-		VkMemoryAllocateInfo vertexBufferAllocInfo {};
-		vertexBufferAllocInfo.sType			  = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vertexBufferAllocInfo.allocationSize  = memRequirements.size;
-		vertexBufferAllocInfo.memoryTypeIndex = FindMemoryType( memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ); // Find a memory type with the correct properties
-
-		// Allocate the memory of the vertex buffer
-		if ( vkAllocateMemory( m_logicalDevice, &vertexBufferAllocInfo, nullptr, &m_vertexBufferMemory ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to allocate vertex buffer memory" );
-
-		// Associate the memory with the vertex buffer
-		vkBindBufferMemory( m_logicalDevice, m_vertexBuffer, m_vertexBufferMemory, 0 );
-
-		// Fill the vertex buffer with data (Map the buffer memory into CPU accessible memory)
+		// Fill the staging buffer with data (Map the buffer memory into CPU accessible memory)
 		void* mappedMemPtr;
-		vkMapMemory( m_logicalDevice, m_vertexBufferMemory, 0, bufferCreateInfo.size, 0, &mappedMemPtr );
+		vkMapMemory( m_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &mappedMemPtr );
 
 		// Copy the vertices into the memory address
-		memcpy( mappedMemPtr, vertices.data(), (size_t)bufferCreateInfo.size );
+		memcpy( mappedMemPtr, vertices.data(), (size_t)bufferSize );
 
 		// Remove the mapping to CPU accessible memory
-		vkUnmapMemory( m_logicalDevice, m_vertexBufferMemory );
-	}
+		vkUnmapMemory( m_logicalDevice, stagingBufferMemory );
 
-	uint32_t FindMemoryType( uint32_t typeFilter, VkMemoryPropertyFlags properties )
-	{
-		// Get the GPU memory properties
-		VkPhysicalDeviceMemoryProperties memProperities;
-		vkGetPhysicalDeviceMemoryProperties( m_physicalDevice, &memProperities );
+		// Create the vertex buffer
+		CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
 
-		// Find a suitable memory type
-		for ( uint32_t i = 0; i < memProperities.memoryTypeCount; i++ )
-			if ( typeFilter & ( 1 << i ) &&													  // The type of memory is suitable
-				 ( memProperities.memoryTypes[i].propertyFlags & properties ) == properties ) // The memory has the correct properties
-				return i;																	  // Return the index of a suitable memory type
+		// Copy the data from the staging buffer to the vertex buffer
+		CopyBuffer( m_logicalDevice, m_commandPool, m_graphicsQueue, stagingBuffer, m_vertexBuffer, bufferSize );
 
-		// No memory type was found
-		throw std::runtime_error( "Failed to find suitable memory type" );
+		// Destroy the staging buffer and free it's memory
+		vkDestroyBuffer( m_logicalDevice, stagingBuffer, nullptr );
+		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
 	}
 
 	void RecreateSwapchain()
@@ -988,7 +964,7 @@ private:
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
 
-		// Destroy the vertex buffer and its memory
+		// Destroy the vertex buffer and free its memory
 		vkDestroyBuffer( m_logicalDevice, m_vertexBuffer, nullptr );
 		vkFreeMemory( m_logicalDevice, m_vertexBufferMemory, nullptr );
 
