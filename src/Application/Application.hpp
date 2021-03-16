@@ -9,11 +9,9 @@
 #include "Vertex.hpp"
 
 #define GLFW_INCLUDE_VULKAN
-#define GLM_FORCE_RADIANS
 #include <GLFW/glfw3.h>
 #include <chrono>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -42,6 +40,8 @@ private:
 	std::vector<VkImageView>	 m_swapchainImageViews;
 	VkRenderPass				 m_renderPass;
 	VkDescriptorSetLayout		 m_descriptorSetLayout;
+	VkDescriptorPool			 m_descriptorPool;
+	std::vector<VkDescriptorSet> m_descriptorSets;
 	VkPipelineLayout			 m_pipelineLayout;
 	VkPipeline					 m_graphicsPipeline;
 	std::vector<VkFramebuffer>	 m_swapchainFramebuffers;
@@ -108,6 +108,12 @@ private:
 
 		// Create the uniform buffers
 		CreateUniformBuffers();
+
+		// Create a descriptor pool
+		CreateDescriptorPool();
+
+		// Create the descriptor sets
+		CreateDescriptorSets();
 
 		// Create the command buffers
 		CreateCommandBuffers();
@@ -568,9 +574,9 @@ private:
 			rasteriserCreateInfo.rasterizerDiscardEnable = VK_FALSE; // Disable output to geometry shader (disable output to framebuffer)
 			rasteriserCreateInfo.polygonMode			 = VK_POLYGON_MODE_FILL;
 			rasteriserCreateInfo.lineWidth				 = 1.0f;
-			rasteriserCreateInfo.cullMode				 = VK_CULL_MODE_BACK_BIT; // Cull back faces
-			rasteriserCreateInfo.frontFace				 = VK_FRONT_FACE_CLOCKWISE;
-			rasteriserCreateInfo.depthBiasEnable		 = VK_FALSE; // Enable alteration of depth values
+			rasteriserCreateInfo.cullMode				 = VK_CULL_MODE_BACK_BIT;			// Cull back faces
+			rasteriserCreateInfo.frontFace				 = VK_FRONT_FACE_COUNTER_CLOCKWISE; // Anti-clockwise because of the flipped y axis
+			rasteriserCreateInfo.depthBiasEnable		 = VK_FALSE;						// Enable alteration of depth values
 			rasteriserCreateInfo.depthBiasConstantFactor = 0.0f;
 			rasteriserCreateInfo.depthBiasClamp			 = 0.0f;
 			rasteriserCreateInfo.depthBiasSlopeFactor	 = 0.0f;
@@ -764,6 +770,9 @@ private:
 			// Bind the index buffers
 			vkCmdBindIndexBuffer( m_commandBuffers[i], m_indexBuffer, 0, INDEX_BUFFER_TYPE );
 
+			// Bind the descriptor sets
+			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[i], 0, nullptr );
+
 			// Record the drawing of the triangle
 			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( indices.size() ), 1, 0, 0, 0 );
 
@@ -850,6 +859,71 @@ private:
 			CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &m_uniformBuffers[i], &m_uniformBuffersMemory[i] );
 	}
 
+	void CreateDescriptorPool()
+	{
+		// Setup the descriptor pool size
+		VkDescriptorPoolSize poolSize {};
+		poolSize.type			 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = static_cast<uint32_t>( m_swapchainImages.size() );
+
+		// Setup the create information for the decriptor pool
+		VkDescriptorPoolCreateInfo poolCreateInfo {};
+		poolCreateInfo.sType		 = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolCreateInfo.poolSizeCount = 1;
+		poolCreateInfo.pPoolSizes	 = &poolSize;
+		poolCreateInfo.maxSets		 = static_cast<uint32_t>( m_swapchainImages.size() );
+		poolCreateInfo.flags		 = 0;
+
+		// Create the descriptor pool
+		if ( vkCreateDescriptorPool( m_logicalDevice, &poolCreateInfo, nullptr, &m_descriptorPool ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to create descriptor pool" );
+	}
+
+	void CreateDescriptorSets()
+	{
+		// Create a vector of of descriptor set layouts and fill with m_descriptorSetLayout
+		std::vector<VkDescriptorSetLayout> layouts( m_swapchainImages.size(), m_descriptorSetLayout );
+
+		// Setup the allocation information for the descriptor sets
+		VkDescriptorSetAllocateInfo descriptorSetAllocInfo {};
+		descriptorSetAllocInfo.sType			  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		descriptorSetAllocInfo.descriptorPool	  = m_descriptorPool;
+		descriptorSetAllocInfo.descriptorSetCount = static_cast<uint32_t>( m_swapchainImages.size() );
+		descriptorSetAllocInfo.pSetLayouts		  = layouts.data();
+
+		// Resize the descriptor set vector
+		m_descriptorSets.resize( m_swapchainImages.size() );
+
+		// Create the descriptor sets
+		if ( vkAllocateDescriptorSets( m_logicalDevice, &descriptorSetAllocInfo, m_descriptorSets.data() ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to allocate descriptor sets" );
+
+		// Populate the descriptor sets
+		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
+		{
+			// Configure the descriptors using buffer information
+			VkDescriptorBufferInfo bufferInfo {};
+			bufferInfo.buffer = m_uniformBuffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range  = sizeof( UniformBufferObject );
+
+			// Configure the write descriptor set
+			VkWriteDescriptorSet descriptorWrite {};
+			descriptorWrite.sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet			 = m_descriptorSets[i];
+			descriptorWrite.dstBinding		 = 0;
+			descriptorWrite.dstArrayElement	 = 0;
+			descriptorWrite.descriptorType	 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrite.descriptorCount	 = 1;
+			descriptorWrite.pBufferInfo		 = &bufferInfo;
+			descriptorWrite.pImageInfo		 = nullptr;
+			descriptorWrite.pTexelBufferView = nullptr;
+
+			// Update the descriptor set
+			vkUpdateDescriptorSets( m_logicalDevice, 1, &descriptorWrite, 0, nullptr );
+		}
+	}
+
 	void RecreateSwapchain()
 	{
 		// Get the width and height of the framebuffer
@@ -877,6 +951,8 @@ private:
 		CreateGraphicsPipeline(); // This can be avoided by using dynamic states for the scissor and viewport
 		CreateFramebuffers();
 		CreateUniformBuffers();
+		CreateDescriptorPool();
+		CreateDescriptorSets();
 		CreateCommandBuffers();
 	}
 
@@ -1032,6 +1108,9 @@ private:
 			vkDestroyBuffer( m_logicalDevice, m_uniformBuffers[i], nullptr );
 			vkFreeMemory( m_logicalDevice, m_uniformBuffersMemory[i], nullptr );
 		}
+
+		// Destroy the descriptor pool
+		vkDestroyDescriptorPool( m_logicalDevice, m_descriptorPool, nullptr );
 	}
 
 	void Cleanup()
