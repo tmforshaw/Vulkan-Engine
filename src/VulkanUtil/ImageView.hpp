@@ -2,7 +2,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-static VkImageView CreateImageView( const VkDevice& p_logicalDevice, const VkImage& p_image, const VkFormat& p_format )
+static VkImageView CreateImageView( const VkDevice& p_logicalDevice, const VkImage& p_image, const VkFormat& p_format, VkImageAspectFlags p_aspectFlags )
 {
 	// Setup the creation information for the image view
 	VkImageViewCreateInfo viewCreateInfo {};
@@ -11,7 +11,7 @@ static VkImageView CreateImageView( const VkDevice& p_logicalDevice, const VkIma
 	viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	viewCreateInfo.format	= p_format;
 	// viewCreateInfo.components					   = VK_COMPONENT_SWIZZLE_IDENTITY;
-	viewCreateInfo.subresourceRange.aspectMask	   = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCreateInfo.subresourceRange.aspectMask	   = p_aspectFlags;
 	viewCreateInfo.subresourceRange.baseMipLevel   = 0;
 	viewCreateInfo.subresourceRange.levelCount	   = 1;
 	viewCreateInfo.subresourceRange.baseArrayLayer = 0;

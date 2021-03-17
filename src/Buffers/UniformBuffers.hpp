@@ -1,6 +1,4 @@
 #pragma once
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES // Ensure the data is correctly aligned
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 

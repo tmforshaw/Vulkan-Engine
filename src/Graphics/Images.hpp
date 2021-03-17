@@ -7,6 +7,12 @@
 #include <GLFW/glfw3.h>
 #include <USER/stb_image.h>
 
+static bool HasStencilComponent( const VkFormat& p_format )
+{
+	// If the format has a stencil component
+	return p_format == VK_FORMAT_D32_SFLOAT_S8_UINT || p_format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
 static void TransitionImageLayout( const VkDevice& p_logicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkImage& p_image, const VkFormat& p_format, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout )
 {
 	// Create a one-time command buffer
@@ -24,13 +30,24 @@ static void TransitionImageLayout( const VkDevice& p_logicalDevice, const VkComm
 	barrier.srcQueueFamilyIndex				= VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex				= VK_QUEUE_FAMILY_IGNORED;
 	barrier.image							= p_image;
-	barrier.subresourceRange.aspectMask		= VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseMipLevel	= 0;
 	barrier.subresourceRange.levelCount		= 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount		= 1;
 
-	// Set the barrier according to the transition
+	// Set subresource range aspect mask according to the transition
+	if ( p_newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
+	{
+		// Set aspect as depth
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		// Set aspect as stencil if it has a stencil component
+		if ( HasStencilComponent( p_format ) ) barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+	else
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	// Set the barrier access mask according to the transition
 	if ( p_oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && p_newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL )
 	{
 		// Set the masks
@@ -50,6 +67,16 @@ static void TransitionImageLayout( const VkDevice& p_logicalDevice, const VkComm
 		// Set the stages
 		srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if ( p_oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && p_newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
+	{
+		// Set the masks
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		// Set the stages
+		srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dstStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	}
 	else
 		throw std::invalid_argument( "Unsupported layer transition" );
@@ -130,4 +157,33 @@ static void CreateImage( const VkDevice& p_logicalDevice, const VkPhysicalDevice
 
 	// Bind the image memory
 	vkBindImageMemory( p_logicalDevice, *p_image, *p_imageMemory, 0 );
+}
+
+static VkFormat FindSupportedFormat( const VkPhysicalDevice& p_physicalDevice, const std::vector<VkFormat>& p_candidates, const VkImageTiling& p_tiling, const VkFormatFeatureFlags& p_features )
+{
+	// Iterate the format candidates
+	for ( const VkFormat& format : p_candidates )
+	{
+		// Get the properties of this format
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties( p_physicalDevice, format, &props );
+
+		// Return a format based on the tiling features
+		if ( ( p_tiling == VK_IMAGE_TILING_LINEAR && ( props.linearTilingFeatures & p_features ) == p_features ) ||	 // All requested features of linear tiling are supported
+			 ( p_tiling == VK_IMAGE_TILING_OPTIMAL && ( props.optimalTilingFeatures & p_features ) == p_features ) ) // All requested features of optimal tiling are supported
+			return format;
+	}
+
+	// No format was found
+	throw std::runtime_error( "Failed to find a supported format" );
+}
+
+static VkFormat FindDepthFormat( const VkPhysicalDevice& p_physicalDevice )
+{
+	// Return a format with the correct tiling and features
+	return FindSupportedFormat(
+		p_physicalDevice,
+		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
