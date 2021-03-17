@@ -3,6 +3,7 @@
 
 layout( location = 0 ) in vec3 inPosition;
 layout( location = 1 ) in vec3 inColour;
+layout( location = 2 ) in vec2 inTexCoord;
 
 // clang-format off
 layout( binding = 0 ) uniform UniformBufferObject
@@ -14,9 +15,11 @@ layout( binding = 0 ) uniform UniformBufferObject
 // clang-format on
 
 layout( location = 0 ) out vec3 oFragColour;
+layout( location = 1 ) out vec2 oFragTexCoord;
 
 void main()
 {
-	gl_Position = ubo.proj * ubo.view * ubo.model * vec4( inPosition.xyz, 1.0 );
-	oFragColour = inColour;
+	gl_Position	  = ubo.proj * ubo.view * ubo.model * vec4( inPosition.xyz, 1.0 );
+	oFragColour	  = inColour;
+	oFragTexCoord = inTexCoord;
 }

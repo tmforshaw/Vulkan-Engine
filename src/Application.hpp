@@ -821,7 +821,7 @@ private:
 
 	void CreateDescriptorSetLayout()
 	{
-		// Setup the descriptor set layout binding
+		// Setup the descriptor set layout binding for the model view projection matrix
 		VkDescriptorSetLayoutBinding uboLayoutBinding {};
 		uboLayoutBinding.binding			= 0;
 		uboLayoutBinding.descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -829,11 +829,22 @@ private:
 		uboLayoutBinding.stageFlags			= VK_SHADER_STAGE_VERTEX_BIT;
 		uboLayoutBinding.pImmutableSamplers = nullptr;
 
+		// Setup the descriptor set layout binding
+		VkDescriptorSetLayoutBinding samplerLayoutBinding {};
+		samplerLayoutBinding.binding			= 1;
+		samplerLayoutBinding.descriptorType		= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding.descriptorCount	= 1;
+		samplerLayoutBinding.stageFlags			= VK_SHADER_STAGE_FRAGMENT_BIT;
+		samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+		// Create an array of bindings
+		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+
 		// Setup the descriptor set layout create information
 		VkDescriptorSetLayoutCreateInfo layoutCreateInfo {};
 		layoutCreateInfo.sType		  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutCreateInfo.bindingCount = 1;
-		layoutCreateInfo.pBindings	  = &uboLayoutBinding;
+		layoutCreateInfo.bindingCount = static_cast<uint32_t>( bindings.size() );
+		layoutCreateInfo.pBindings	  = bindings.data();
 
 		// Create the descriptor set layout
 		if ( vkCreateDescriptorSetLayout( m_logicalDevice, &layoutCreateInfo, nullptr, &m_descriptorSetLayout ) != VK_SUCCESS )
@@ -854,16 +865,18 @@ private:
 
 	void CreateDescriptorPool()
 	{
-		// Setup the descriptor pool size
-		VkDescriptorPoolSize poolSize {};
-		poolSize.type			 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = static_cast<uint32_t>( m_swapchainImages.size() );
+		// Setup the descriptor pool sizes
+		std::array<VkDescriptorPoolSize, 2> poolSizes {};
+		poolSizes[0].type			 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = static_cast<uint32_t>( m_swapchainImages.size() );
+		poolSizes[1].type			 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[1].descriptorCount = static_cast<uint32_t>( m_swapchainImages.size() );
 
 		// Setup the create information for the decriptor pool
 		VkDescriptorPoolCreateInfo poolCreateInfo {};
 		poolCreateInfo.sType		 = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolCreateInfo.poolSizeCount = 1;
-		poolCreateInfo.pPoolSizes	 = &poolSize;
+		poolCreateInfo.poolSizeCount = static_cast<uint32_t>( poolSizes.size() );
+		poolCreateInfo.pPoolSizes	 = poolSizes.data();
 		poolCreateInfo.maxSets		 = static_cast<uint32_t>( m_swapchainImages.size() );
 		poolCreateInfo.flags		 = 0;
 
@@ -900,20 +913,37 @@ private:
 			bufferInfo.offset = 0;
 			bufferInfo.range  = sizeof( UniformBufferObject );
 
-			// Configure the write descriptor set
-			VkWriteDescriptorSet descriptorWrite {};
-			descriptorWrite.sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrite.dstSet			 = m_descriptorSets[i];
-			descriptorWrite.dstBinding		 = 0;
-			descriptorWrite.dstArrayElement	 = 0;
-			descriptorWrite.descriptorType	 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrite.descriptorCount	 = 1;
-			descriptorWrite.pBufferInfo		 = &bufferInfo;
-			descriptorWrite.pImageInfo		 = nullptr;
-			descriptorWrite.pTexelBufferView = nullptr;
+			// Configure the descriptors using image information
+			VkDescriptorImageInfo imageInfo {};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView	  = m_textureImageView;
+			imageInfo.sampler	  = m_textureSampler;
 
-			// Update the descriptor set
-			vkUpdateDescriptorSets( m_logicalDevice, 1, &descriptorWrite, 0, nullptr );
+			// Create an array of the write descriptor sets
+			std::array<VkWriteDescriptorSet, 2> descriptorsWrites {};
+
+			// Configure the uniform buffer write descriptor set
+			descriptorsWrites[0].sType			  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorsWrites[0].dstSet			  = m_descriptorSets[i];
+			descriptorsWrites[0].dstBinding		  = 0;
+			descriptorsWrites[0].dstArrayElement  = 0;
+			descriptorsWrites[0].descriptorType	  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorsWrites[0].descriptorCount  = 1;
+			descriptorsWrites[0].pBufferInfo	  = &bufferInfo;
+			descriptorsWrites[0].pImageInfo		  = nullptr;
+			descriptorsWrites[0].pTexelBufferView = nullptr;
+
+			// Configure the sampler write descriptor set
+			descriptorsWrites[1].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorsWrites[1].dstSet			 = m_descriptorSets[i];
+			descriptorsWrites[1].dstBinding		 = 1;
+			descriptorsWrites[1].dstArrayElement = 0;
+			descriptorsWrites[1].descriptorType	 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorsWrites[1].descriptorCount = 1;
+			descriptorsWrites[1].pImageInfo		 = &imageInfo;
+
+			// Update the descriptor sets
+			vkUpdateDescriptorSets( m_logicalDevice, static_cast<uint32_t>( descriptorsWrites.size() ), descriptorsWrites.data(), 0, nullptr );
 		}
 	}
 
