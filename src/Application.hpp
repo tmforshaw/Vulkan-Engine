@@ -6,6 +6,7 @@
 #include "Graphics/Shaders.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
 #include "VulkanUtil/DeviceAndExtensions.hpp"
+#include "VulkanUtil/ImageView.hpp"
 #include "VulkanUtil/QueueFamilies.hpp"
 #include "VulkanUtil/Swapchain.hpp"
 
@@ -30,6 +31,7 @@ private:
 	VkInstance					 m_instance;
 	VkDebugUtilsMessengerEXT	 m_debugMessenger;
 	VkPhysicalDevice			 m_physicalDevice;
+	VkPhysicalDeviceProperties	 m_physicalDeviceProperties;
 	VkDevice					 m_logicalDevice;
 	VkQueue						 m_graphicsQueue;
 	VkQueue						 m_presentQueue;
@@ -61,6 +63,8 @@ private:
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
 	VkImage						 m_textureImage;
 	VkDeviceMemory				 m_textureImageMemory;
+	VkImageView					 m_textureImageView;
+	VkSampler					 m_textureSampler;
 
 	bool m_framebufferResized;
 
@@ -105,6 +109,12 @@ private:
 
 		// Create a texture
 		CreateTextureImage();
+
+		// Create a texture image view
+		CreateTextureImageView();
+
+		// Create an texture sampler
+		CreateTextureSampler();
 
 		// Create a vertex buffer
 		CreateVertexBuffer();
@@ -270,6 +280,9 @@ private:
 		// Check if a device was found
 		if ( m_physicalDevice == VK_NULL_HANDLE )
 			throw std::runtime_error( "Failed to find a suitable GPU" ); // Device wasn't found
+
+		// Query the device properties
+		vkGetPhysicalDeviceProperties( m_physicalDevice, &m_physicalDeviceProperties );
 	}
 
 	void CreateLogicalDevice()
@@ -306,6 +319,7 @@ private:
 
 		// Specify the device features to use
 		VkPhysicalDeviceFeatures deviceFeatures {};
+		deviceFeatures.samplerAnisotropy = VK_TRUE;
 
 		// Create the logical device
 		VkDeviceCreateInfo createInfo {};
@@ -418,36 +432,9 @@ private:
 		// Resize the vector
 		m_swapchainImageViews.resize( m_swapchainImages.size() );
 
-		// Declare a create information struct for the image views
-		VkImageViewCreateInfo createInfo {};
-
-		// Iterate over the swapchain images
+		// Iterate over the swapchain images and create an image view
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
-		{
-			// Set the create info
-			createInfo			= {};
-			createInfo.sType	= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			createInfo.image	= m_swapchainImages[i];
-			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			createInfo.format	= m_swapchainImageFormat;
-
-			// Colour mapping for the colour channels
-			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-			// Describe the image's purpose
-			createInfo.subresourceRange.aspectMask	   = VK_IMAGE_ASPECT_COLOR_BIT;
-			createInfo.subresourceRange.baseMipLevel   = 0;
-			createInfo.subresourceRange.levelCount	   = 1;
-			createInfo.subresourceRange.baseArrayLayer = 0;
-			createInfo.subresourceRange.layerCount	   = 1;
-
-			// Create the image view
-			if ( vkCreateImageView( m_logicalDevice, &createInfo, nullptr, &m_swapchainImageViews[i] ) != VK_SUCCESS )
-				throw std::runtime_error( "Failed to create image view" );
-		}
+			m_swapchainImageViews[i] = CreateImageView( m_logicalDevice, m_swapchainImages[i], m_swapchainImageFormat );
 	}
 
 	void CreateRenderPass()
@@ -974,6 +961,37 @@ private:
 		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
 	}
 
+	void CreateTextureImageView()
+	{
+		m_textureImageView = CreateImageView( m_logicalDevice, m_textureImage, VK_FORMAT_R8G8B8A8_SRGB );
+	}
+
+	void CreateTextureSampler()
+	{
+		// Setup the create information for the texture sampler
+		VkSamplerCreateInfo samplerCreateInfo {};
+		samplerCreateInfo.sType					  = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerCreateInfo.magFilter				  = VK_FILTER_LINEAR;
+		samplerCreateInfo.minFilter				  = VK_FILTER_LINEAR;
+		samplerCreateInfo.addressModeU			  = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+		samplerCreateInfo.addressModeV			  = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+		samplerCreateInfo.addressModeW			  = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+		samplerCreateInfo.anisotropyEnable		  = VK_TRUE;
+		samplerCreateInfo.maxAnisotropy			  = m_physicalDeviceProperties.limits.maxSamplerAnisotropy;
+		samplerCreateInfo.borderColor			  = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerCreateInfo.compareEnable			  = VK_FALSE;
+		samplerCreateInfo.compareOp				  = VK_COMPARE_OP_ALWAYS;
+		samplerCreateInfo.mipmapMode			  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerCreateInfo.mipLodBias			  = 0.0f;
+		samplerCreateInfo.minLod				  = 0.0f;
+		samplerCreateInfo.maxLod				  = 0.0f;
+
+		// Create the texture sampler
+		if ( vkCreateSampler( m_logicalDevice, &samplerCreateInfo, nullptr, &m_textureSampler ) != VK_SUCCESS )
+			throw std::runtime_error( "Failed to create texture sampler" );
+	}
+
 	void RecreateSwapchain()
 	{
 		// Get the width and height of the framebuffer
@@ -1167,6 +1185,12 @@ private:
 	{
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
+
+		// Destroy the texture sampler
+		vkDestroySampler( m_logicalDevice, m_textureSampler, nullptr );
+
+		// Destroy the image view
+		vkDestroyImageView( m_logicalDevice, m_textureImageView, nullptr );
 
 		// Destroy the texture image and free its memory
 		vkDestroyImage( m_logicalDevice, m_textureImage, nullptr );

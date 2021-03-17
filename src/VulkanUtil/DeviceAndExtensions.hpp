@@ -56,8 +56,12 @@ static bool IsDeviceSuitable( const VkPhysicalDevice& p_device, const VkSurfaceK
 		swapchainSufficient = !( swapchainSupport.formats.empty() || swapchainSupport.presentModes.empty() );
 	}
 
-	// Check if the queue family can process the commands we want
-	return indices.IsComplete() && extensionSupported && swapchainSufficient;
+	// Get the physical device features
+	VkPhysicalDeviceFeatures supportedFeatures {};
+	vkGetPhysicalDeviceFeatures( p_device, &supportedFeatures );
+
+	// Check if the queue family can process the commands we want, and the extentions and features we want are supported
+	return indices.IsComplete() && extensionSupported && swapchainSufficient && supportedFeatures.samplerAnisotropy;
 }
 
 static bool CheckValidationLayerSupport()
