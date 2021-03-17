@@ -2,6 +2,7 @@
 #include "Buffers/Buffers.hpp"
 #include "Buffers/UniformBuffers.hpp"
 #include "Buffers/Vertex.hpp"
+#include "Graphics/Images.hpp"
 #include "Graphics/Shaders.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
 #include "VulkanUtil/DeviceAndExtensions.hpp"
@@ -58,6 +59,8 @@ private:
 	VkDeviceMemory				 m_indexBufferMemory;
 	std::vector<VkBuffer>		 m_uniformBuffers;
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
+	VkImage						 m_textureImage;
+	VkDeviceMemory				 m_textureImageMemory;
 
 	bool m_framebufferResized;
 
@@ -929,6 +932,46 @@ private:
 
 	void CreateTextureImage()
 	{
+		// Load the texture
+		int		 texWidth, texHeight, texChannels;
+		stbi_uc* pixels = stbi_load( "resources/textures/Kitten.jpeg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+
+		// Get the size of the image
+		VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+		// Throw an error if the image wasn't loaded
+		if ( !pixels )
+			throw std::runtime_error( "Failed to load texture image" );
+
+		// Create a staging buffer and some memory for the image
+		VkBuffer	   stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		CreateBuffer( m_logicalDevice, m_physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
+
+		// Copy the data (Map memory to CPU accessible memory, copy, un-map CPU accessible memory)
+		void* mappedMemPtr;
+		vkMapMemory( m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &mappedMemPtr );
+		memcpy( mappedMemPtr, pixels, static_cast<uint32_t>( imageSize ) );
+		vkUnmapMemory( m_logicalDevice, stagingBufferMemory );
+
+		// Free the original pixel array
+		stbi_image_free( pixels );
+
+		// Create the image
+		CreateImage( m_logicalDevice, m_physicalDevice, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_textureImage, &m_textureImageMemory );
+
+		// Transition the layout of the image to an optimal layout
+		TransitionImageLayout( m_logicalDevice, m_commandPool, m_graphicsQueue, m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
+
+		// Copy the buffer to the image
+		CopyBufferToImage( m_logicalDevice, m_commandPool, m_graphicsQueue, stagingBuffer, m_textureImage, static_cast<uint32_t>( texWidth ), static_cast<uint32_t>( texHeight ) );
+
+		// Transition the layout so it can be read by the shader
+		TransitionImageLayout( m_logicalDevice, m_commandPool, m_graphicsQueue, m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+
+		// Desrtoy the stagin buffer and free its memory
+		vkDestroyBuffer( m_logicalDevice, stagingBuffer, nullptr );
+		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
 	}
 
 	void RecreateSwapchain()
@@ -1124,6 +1167,10 @@ private:
 	{
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
+
+		// Destroy the texture image and free its memory
+		vkDestroyImage( m_logicalDevice, m_textureImage, nullptr );
+		vkFreeMemory( m_logicalDevice, m_textureImageMemory, nullptr );
 
 		// Destroy the descriptor set layout
 		vkDestroyDescriptorSetLayout( m_logicalDevice, m_descriptorSetLayout, nullptr );

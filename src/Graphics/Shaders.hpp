@@ -37,7 +37,7 @@ static std::vector<char> ReadFile( const std::string& filepath )
 	return buffer;
 }
 
-VkShaderModule CreateShaderModule( const std::vector<char>& code, const VkDevice& p_device )
+static VkShaderModule CreateShaderModule( const std::vector<char>& code, const VkDevice& p_device )
 {
 	// Setup the create information for the module
 	VkShaderModuleCreateInfo createInfo {};

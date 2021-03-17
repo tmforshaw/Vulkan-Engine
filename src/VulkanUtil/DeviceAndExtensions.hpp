@@ -17,7 +17,7 @@ const uint32_t validationLayerCount = 1;
 const char*	   deviceExtensions[]	= { VK_KHR_SWAPCHAIN_EXTENSION_NAME }; // The names of the required extensions
 const uint32_t deviceExtensionCount = 1;
 
-bool CheckDeviceExtensionSupport( const VkPhysicalDevice& p_device )
+static bool CheckDeviceExtensionSupport( const VkPhysicalDevice& p_device )
 {
 	// Get the amount of extensions
 	uint32_t extensionCount = 0;
@@ -37,7 +37,7 @@ bool CheckDeviceExtensionSupport( const VkPhysicalDevice& p_device )
 	return requiredExtensions.empty();
 }
 
-bool IsDeviceSuitable( const VkPhysicalDevice& p_device, const VkSurfaceKHR& p_surface )
+static bool IsDeviceSuitable( const VkPhysicalDevice& p_device, const VkSurfaceKHR& p_surface )
 {
 	// Get the queue family indices
 	QueueFamilyIndices indices = FindQueueFamilies( p_device, p_surface );

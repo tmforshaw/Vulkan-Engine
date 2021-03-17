@@ -1,7 +1,7 @@
 PROJECT_NAME = VulkanEngine
 
 CC = clang++
-C_FLAGS = -std=c++2a -Wall -O2 -I$(STB_IMAGE_PATH)
+C_FLAGS = -std=c++2a -Wall # -O2
 LINK_FLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 BUILD_DIR := bin
@@ -16,8 +16,6 @@ rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(su
 SRC = $(call rwildcard,$(SRC_DIR),*.cpp)
 DEPEND_SRC := $(call rwildcard,$(DEPEND_DIR),*.cpp)
 DEPEND_SRC += $(call rwildcard,$(DEPEND_DIR),*.c)
-
-STB_IMAGE_PATH = $(DEPEND_DIR)/stb_image.h
 
 OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC)) # SRC objects
 OBJS += $(patsubst $(DEPEND_DIR)/%.cpp, $(OBJ_DIR)/$(DEPEND_DIR)/%.o,$(patsubst $(DEPEND_DIR)/%.c, $(OBJ_DIR)/$(DEPEND_DIR)/%.o, $(DEPEND_SRC))) # Dependency objects

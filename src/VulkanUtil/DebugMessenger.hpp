@@ -3,8 +3,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-VkResult CreateDebugUtilsMessengerEXT(
-	VkInstance								  p_instance,
+static VkResult CreateDebugUtilsMessengerEXT(
+	const VkInstance&						  p_instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* p_createInfo,
 	const VkAllocationCallbacks*			  p_allocator,
 	VkDebugUtilsMessengerEXT*				  p_debugMessenger )
@@ -27,7 +27,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback( VkDebugUtilsMessageSeverity
 	return VK_FALSE;
 }
 
-void PopulateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT* createInfo )
+static void PopulateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT* createInfo )
 {
 	*createInfo					= {};
 	createInfo->sType			= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -37,10 +37,10 @@ void PopulateDebugMessengerCreateInfo( VkDebugUtilsMessengerCreateInfoEXT* creat
 	createInfo->pUserData		= nullptr; // Optional data to send to DebugCallback
 }
 
-void DestroyDebugUtilsMessengerEXT(
-	VkInstance					 p_instance,
-	VkDebugUtilsMessengerEXT	 p_debugMessenger,
-	const VkAllocationCallbacks* p_allocator )
+static void DestroyDebugUtilsMessengerEXT(
+	const VkInstance&				p_instance,
+	const VkDebugUtilsMessengerEXT& p_debugMessenger,
+	const VkAllocationCallbacks*	p_allocator )
 {
 	// Create the function via the address
 	PFN_vkDestroyDebugUtilsMessengerEXT function = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr( p_instance, "vkDestroyDebugUtilsMessengerEXT" );

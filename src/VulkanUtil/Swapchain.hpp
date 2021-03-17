@@ -16,7 +16,7 @@ struct SwapchainSupportDetails
 	std::vector<VkPresentModeKHR>	presentModes;
 };
 
-SwapchainSupportDetails QuerySwapchainSupport( const VkPhysicalDevice &p_device, const VkSurfaceKHR &p_surface )
+static SwapchainSupportDetails QuerySwapchainSupport( const VkPhysicalDevice &p_device, const VkSurfaceKHR &p_surface )
 {
 	SwapchainSupportDetails details;
 
@@ -48,7 +48,7 @@ SwapchainSupportDetails QuerySwapchainSupport( const VkPhysicalDevice &p_device,
 	return details;
 }
 
-VkSurfaceFormatKHR ChooseSwapSurfaceFormat( const std::vector<VkSurfaceFormatKHR> &supportedFormats )
+static VkSurfaceFormatKHR ChooseSwapSurfaceFormat( const std::vector<VkSurfaceFormatKHR> &supportedFormats )
 {
 	for ( const auto &supportedFormat : supportedFormats ) // Iterate formats
 	{
@@ -61,7 +61,7 @@ VkSurfaceFormatKHR ChooseSwapSurfaceFormat( const std::vector<VkSurfaceFormatKHR
 	return supportedFormats[0];
 }
 
-VkPresentModeKHR ChooseSwapPresentMode( const std::vector<VkPresentModeKHR> &supportedPresentModes )
+static VkPresentModeKHR ChooseSwapPresentMode( const std::vector<VkPresentModeKHR> &supportedPresentModes )
 {
 	for ( const auto &supportedPresentMode : supportedPresentModes )
 	{
@@ -74,7 +74,7 @@ VkPresentModeKHR ChooseSwapPresentMode( const std::vector<VkPresentModeKHR> &sup
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D ChooseSwapExtent( const VkSurfaceCapabilitiesKHR &p_capabilities, GLFWwindow *&p_window )
+static VkExtent2D ChooseSwapExtent( const VkSurfaceCapabilitiesKHR &p_capabilities, GLFWwindow *&p_window )
 {
 	if ( p_capabilities.currentExtent.width != (uint32_t)-1 ) // If it isnt equal to the uint32_t value
 		return p_capabilities.currentExtent;

@@ -14,7 +14,7 @@ struct QueueFamilyIndices
 	}
 };
 
-QueueFamilyIndices FindQueueFamilies( const VkPhysicalDevice& p_device, const VkSurfaceKHR& p_surface )
+static QueueFamilyIndices FindQueueFamilies( const VkPhysicalDevice& p_device, const VkSurfaceKHR& p_surface )
 {
 	QueueFamilyIndices indices;
 
