@@ -2,11 +2,11 @@
 An engine I am building to learn the vulkan API.
 
 
-# Description
+## Description
 Originally I attempted to create an engine in OpenGL, however I want to try my hand at Vulkan because it is more powerful and modern.
 
 
-# Installation
+## Installation
 You may find that when you try to compile the engine you are missing some files, you will need to run the following commands:
 ``` bash
 sudo apt install build-essential
@@ -25,3 +25,5 @@ sudo apt install libxxf86vm-dev
 sudo apt install libxi-dev
 ```
 This installs some libraries that are needed for the linker.
+
+Lastly you will need to download the [Google unofficial binaries](https://github.com/google/shaderc/blob/main/downloads.md) for the GLSLC compiler and put them into your `usr/local/bin` folder.
