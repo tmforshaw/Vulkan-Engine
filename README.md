@@ -26,4 +26,4 @@ sudo apt install libxi-dev
 ```
 This installs some libraries that are needed for the linker.
 
-Lastly you will need to download the [Google unofficial binaries](https://github.com/google/shaderc/blob/main/downloads.md) for the GLSLC compiler and put them into your `usr/local/bin` folder.
+Lastly you will need to download the [Google unofficial binaries](https://github.com/google/shaderc/blob/main/downloads.md) for the GLSLC compiler and put `glslc`  into your `usr/local/bin` folder.
