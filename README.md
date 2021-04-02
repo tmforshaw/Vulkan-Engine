@@ -1,10 +1,12 @@
 # Vulkan-Engine
 An engine I am building to learn the vulkan API.
 
+
 # Description
 Originally I attempted to create an engine in OpenGL, however I want to try my hand at Vulkan because it is more powerful and modern.
 
-# Preinstallation
+
+# Installation
 You may find that when you try to compile the engine you are missing some files, you will need to run the following commands:
 ``` bash
 sudo apt install build-essential
