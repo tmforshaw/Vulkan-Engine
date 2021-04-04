@@ -5,7 +5,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <USER/stb_image.h>
+#include <stb_image.h>
 
 static bool HasStencilComponent( const VkFormat& p_format )
 {
