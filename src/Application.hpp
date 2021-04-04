@@ -3,6 +3,7 @@
 #include "Buffers/UniformBuffers.hpp"
 #include "Buffers/Vertex.hpp"
 #include "Graphics/Images.hpp"
+#include "Graphics/Models.hpp"
 #include "Graphics/Shaders.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
 #include "VulkanUtil/DeviceAndExtensions.hpp"
@@ -21,8 +22,11 @@
 #include <stdexcept>
 #include <vector>
 
-const uint16_t winWidth	 = 700;
-const uint16_t winHeight = 700;
+// Constants
+const uint16_t WINDOW_WIDTH	 = 700;
+const uint16_t WINDOW_HEIGHT = 700;
+
+const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
 
 #define MAX_FRAMES_IN_FLIGHT 2	   // Maximum number of frames to process concurrently
 #define FOV					 45.0f // The camera field of view
@@ -58,6 +62,8 @@ private:
 	std::vector<VkFence>		 m_inFlightFences;
 	std::vector<VkFence>		 m_inFlightImages;
 	size_t						 m_currentFrame;
+	std::vector<Vertex>			 m_vertices;
+	std::vector<indexBufferType> m_indices;
 	VkBuffer					 m_vertexBuffer;
 	VkDeviceMemory				 m_vertexBufferMemory;
 	VkBuffer					 m_indexBuffer;
@@ -125,6 +131,9 @@ private:
 		// Create an texture sampler
 		CreateTextureSampler();
 
+		// Load the model
+		LoadModel( &m_vertices, &m_indices );
+
 		// Create a vertex buffer
 		CreateVertexBuffer();
 
@@ -159,7 +168,7 @@ private:
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
 
 		// Set the window variable
-		m_window = glfwCreateWindow( winWidth, winHeight, "Vulkan", nullptr, nullptr );
+		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, "Vulkan", nullptr, nullptr );
 
 		// State that the window hasn't been resized yet
 		m_framebufferResized = false;
@@ -806,7 +815,7 @@ private:
 			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[i], 0, nullptr );
 
 			// Record the drawing of the triangle
-			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( indices.size() ), 1, 0, 0, 0 );
+			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_indices.size() ), 1, 0, 0, 0 );
 
 			// Record the end of the render pass
 			vkCmdEndRenderPass( m_commandBuffers[i] );
@@ -847,14 +856,14 @@ private:
 	void CreateVertexBuffer()
 	{
 		// Create a vertex buffer using a staging buffer
-		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_vertices.size() * sizeof( Vertex ), m_vertices.data(),
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
 	}
 
 	void CreateIndexBuffer()
 	{
 		// Create an index buffer using a staging buffer
-		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_indices.size() * sizeof( m_indices[0] ), m_indices.data(),
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_indexBuffer, &m_indexBufferMemory );
 	}
 
@@ -990,7 +999,7 @@ private:
 	{
 		// Load the texture
 		int		 texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load( "resources/textures/Kitten.jpeg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+		stbi_uc* pixels = stbi_load( TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
 
 		// Get the size of the image
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
