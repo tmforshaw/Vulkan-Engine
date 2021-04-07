@@ -26,6 +26,7 @@
 const uint16_t WINDOW_WIDTH	 = 700;
 const uint16_t WINDOW_HEIGHT = 700;
 
+const std::string MODEL_PATH   = "resources/models/viking_room.obj";
 const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
 
 #define MAX_FRAMES_IN_FLIGHT 2	   // Maximum number of frames to process concurrently
@@ -70,13 +71,9 @@ private:
 	VkDeviceMemory				 m_indexBufferMemory;
 	std::vector<VkBuffer>		 m_uniformBuffers;
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
-	VkImage						 m_textureImage;
-	VkDeviceMemory				 m_textureImageMemory;
-	VkImageView					 m_textureImageView;
+	Image						 m_textureImage;
 	VkSampler					 m_textureSampler;
-	VkImage						 m_depthImage;
-	VkDeviceMemory				 m_depthImageMemory;
-	VkImageView					 m_depthImageView;
+	Image						 m_depthImage;
 
 	bool m_framebufferResized;
 
@@ -125,14 +122,11 @@ private:
 		// Create a texture
 		CreateTextureImage();
 
-		// Create a texture image view
-		CreateTextureImageView();
-
 		// Create an texture sampler
 		CreateTextureSampler();
 
 		// Load the model
-		LoadModel( &m_vertices, &m_indices );
+		LoadModel( MODEL_PATH.c_str(), &m_vertices, &m_indices );
 
 		// Create a vertex buffer
 		CreateVertexBuffer();
@@ -719,7 +713,7 @@ private:
 		for ( size_t i = 0; i < m_swapchainImageViews.size(); i++ )
 		{
 			// Create an image view array
-			std::array<VkImageView, 2> attachments = { m_swapchainImageViews[i], m_depthImageView };
+			std::array<VkImageView, 2> attachments = { m_swapchainImageViews[i], m_depthImage.GetImageView() };
 
 			// Setup the framebuffer create information
 			VkFramebufferCreateInfo framebufferCreateInfo {};
@@ -964,7 +958,7 @@ private:
 			// Configure the descriptors using image information
 			VkDescriptorImageInfo imageInfo {};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView	  = m_textureImageView;
+			imageInfo.imageView	  = m_textureImage.GetImageView();
 			imageInfo.sampler	  = m_textureSampler;
 
 			// Create an array of the write descriptor sets
@@ -997,51 +991,10 @@ private:
 
 	void CreateTextureImage()
 	{
-		// Load the texture
-		int		 texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load( TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
-
-		// Get the size of the image
-		VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-		// Throw an error if the image wasn't loaded
-		if ( !pixels )
-			throw std::runtime_error( "Failed to load texture image" );
-
-		// Create a staging buffer and some memory for the image
-		VkBuffer	   stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
-		CreateBuffer( m_logicalDevice, m_physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
-
-		// Copy the data (Map memory to CPU accessible memory, copy, un-map CPU accessible memory)
-		void* mappedMemPtr;
-		vkMapMemory( m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &mappedMemPtr );
-		memcpy( mappedMemPtr, pixels, static_cast<uint32_t>( imageSize ) );
-		vkUnmapMemory( m_logicalDevice, stagingBufferMemory );
-
-		// Free the original pixel array
-		stbi_image_free( pixels );
-
-		// Create the image
-		CreateImage( m_logicalDevice, m_physicalDevice, texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_textureImage, &m_textureImageMemory );
-
-		// Transition the layout of the image to an optimal layout
-		TransitionImageLayout( m_logicalDevice, m_commandPool, m_graphicsQueue, m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
-
-		// Copy the buffer to the image
-		CopyBufferToImage( m_logicalDevice, m_commandPool, m_graphicsQueue, stagingBuffer, m_textureImage, static_cast<uint32_t>( texWidth ), static_cast<uint32_t>( texHeight ) );
-
-		// Transition the layout so it can be read by the shader
-		TransitionImageLayout( m_logicalDevice, m_commandPool, m_graphicsQueue, m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-
-		// Desrtoy the stagin buffer and free its memory
-		vkDestroyBuffer( m_logicalDevice, stagingBuffer, nullptr );
-		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
-	}
-
-	void CreateTextureImageView()
-	{
-		m_textureImageView = CreateImageView( m_logicalDevice, m_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT );
+		// Initialise an Image object from an image file using the correct parameters
+		m_textureImage.InitFromFile( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, TEXTURE_PATH.c_str(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+									 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+									 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT );
 	}
 
 	void CreateTextureSampler()
@@ -1075,15 +1028,10 @@ private:
 		// Find a suitable depth format
 		VkFormat depthFormat = FindDepthFormat( m_physicalDevice );
 
-		// Create an image to hold the depth texture
-		CreateImage( m_logicalDevice, m_physicalDevice, m_swapchainExtent.width, m_swapchainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-					 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_depthImage, &m_depthImageMemory );
-
-		// Create an image view for the depth texture
-		m_depthImageView = CreateImageView( m_logicalDevice, m_depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT );
-
-		// Transition the layout of the depth texture from undefined to depth/stencil attachment
-		TransitionImageLayout( m_logicalDevice, m_commandPool, m_graphicsQueue, m_depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
+		// Initialise an Image object using the correct parameters
+		m_depthImage.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_swapchainExtent.width, m_swapchainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+						   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+						   VK_IMAGE_ASPECT_DEPTH_BIT );
 	}
 
 	void RecreateSwapchain()
@@ -1242,10 +1190,8 @@ private:
 
 	void CleanupSwapchain()
 	{
-		// Destroy the depth buffer, its memory, and the image view
-		vkDestroyImageView( m_logicalDevice, m_depthImageView, nullptr );
-		vkDestroyImage( m_logicalDevice, m_depthImage, nullptr );
-		vkFreeMemory( m_logicalDevice, m_depthImageMemory, nullptr );
+		// Destroy the depth buffer image
+		m_depthImage.~Image();
 
 		// Destroy the framebuffers
 		for ( const auto& framebuffer : m_swapchainFramebuffers )
@@ -1289,12 +1235,8 @@ private:
 		// Destroy the texture sampler
 		vkDestroySampler( m_logicalDevice, m_textureSampler, nullptr );
 
-		// Destroy the image view
-		vkDestroyImageView( m_logicalDevice, m_textureImageView, nullptr );
-
-		// Destroy the texture image and free its memory
-		vkDestroyImage( m_logicalDevice, m_textureImage, nullptr );
-		vkFreeMemory( m_logicalDevice, m_textureImageMemory, nullptr );
+		// Destroy the texture image
+		m_textureImage.~Image();
 
 		// Destroy the descriptor set layout
 		vkDestroyDescriptorSetLayout( m_logicalDevice, m_descriptorSetLayout, nullptr );

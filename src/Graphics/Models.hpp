@@ -13,8 +13,6 @@
 #define INDEX_BUFFER_TYPE VK_INDEX_TYPE_UINT32
 typedef uint32_t indexBufferType;
 
-const std::string MODEL_PATH = "resources/models/viking_room.obj";
-
 // Define the hash function for Vertex
 namespace std
 {
@@ -31,7 +29,7 @@ namespace std
 	};
 } // namespace std
 
-void LoadModel( std::vector<Vertex>* p_vertices, std::vector<indexBufferType>* p_indices )
+static void LoadModel( const char* path, std::vector<Vertex>* p_vertices, std::vector<indexBufferType>* p_indices )
 {
 	tinyobj::attrib_t							attrib;
 	std::vector<tinyobj::shape_t>				shapes;
@@ -39,7 +37,7 @@ void LoadModel( std::vector<Vertex>* p_vertices, std::vector<indexBufferType>* p
 	std::string									warn, err;
 	std::unordered_map<Vertex, indexBufferType> uniqueVertices {};
 
-	if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str() ) )
+	if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &err, path ) )
 		throw std::runtime_error( warn + err );
 
 	// Combine all of the faces into a single model

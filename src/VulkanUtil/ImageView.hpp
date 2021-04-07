@@ -2,7 +2,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-static VkImageView CreateImageView( const VkDevice& p_logicalDevice, const VkImage& p_image, const VkFormat& p_format, VkImageAspectFlags p_aspectFlags )
+static VkImageView CreateImageView( const VkDevice& p_logicalDevice, const VkImage& p_image, const VkFormat& p_format, const VkImageAspectFlags& p_aspectFlags )
 {
 	// Setup the creation information for the image view
 	VkImageViewCreateInfo viewCreateInfo {};

@@ -1,6 +1,7 @@
 #pragma once
 #include "../Buffers/Buffers.hpp"
 #include "../Buffers/CommandBuffer.hpp"
+#include "../VulkanUtil/ImageView.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define GLFW_INCLUDE_VULKAN
@@ -187,3 +188,94 @@ static VkFormat FindDepthFormat( const VkPhysicalDevice& p_physicalDevice )
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 }
+
+class Image
+{
+private:
+	VkImage		   m_image;
+	VkDeviceMemory m_imageMemory;
+	VkImageView	   m_imageView;
+	VkDevice	   m_logicalDevice;
+
+public:
+	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
+			   const uint32_t p_width, const uint32_t p_height, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage,
+			   const VkMemoryPropertyFlags& p_properties, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout, const VkImageAspectFlags& p_aspectFlags )
+	{
+		// Set the logical device member variable
+		m_logicalDevice = p_logicalDevice;
+
+		// Create the image
+		CreateImage( m_logicalDevice, p_physicalDevice, p_width, p_height, p_format, p_tiling, p_usage, p_properties, &m_image, &m_imageMemory );
+
+		// Transition the layout of the image to an optimal layout
+		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, p_oldLayout, p_newLayout );
+
+		// Create image view
+		m_imageView = CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags );
+	}
+
+	void InitFromFile( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
+					   const char* path, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
+					   const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout, const VkImageLayout& p_finalLayout, const VkImageAspectFlags& p_aspectFlags )
+	{
+		// Set the logical device member variable
+		m_logicalDevice = p_logicalDevice;
+
+		// Get the pixels
+		int		 texWidth, texHeight, texChannels;
+		stbi_uc* pixels = stbi_load( path, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+
+		// Get the size of the image
+		VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+		// Throw an error if the image wasn't loaded
+		if ( !pixels )
+			throw std::runtime_error( "Failed to load image" );
+
+		// Create a staging buffer and some memory for the image
+		VkBuffer	   stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+		CreateBuffer( m_logicalDevice, p_physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
+
+		// Copy the data (Map memory to CPU accessible memory, copy, un-map CPU accessible memory)
+		void* mappedMemPtr;
+		vkMapMemory( m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &mappedMemPtr );
+		memcpy( mappedMemPtr, pixels, static_cast<uint32_t>( imageSize ) );
+		vkUnmapMemory( m_logicalDevice, stagingBufferMemory );
+
+		// Free the original pixel array
+		stbi_image_free( pixels );
+
+		// Create the image
+		CreateImage( m_logicalDevice, p_physicalDevice, texWidth, texHeight, p_format, p_tiling, p_usage, p_properties, &m_image, &m_imageMemory );
+
+		// Transition the layout of the image to an optimal layout
+		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, p_oldLayout, p_newLayout );
+
+		// Copy the buffer to the image
+		CopyBufferToImage( m_logicalDevice, p_commandPool, p_graphicsQueue, stagingBuffer, m_image, static_cast<uint32_t>( texWidth ), static_cast<uint32_t>( texHeight ) );
+
+		// Transition the layout so it can be read by the shader
+		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, p_newLayout, p_finalLayout );
+
+		// Destroy the staging buffer and free its memory
+		vkDestroyBuffer( m_logicalDevice, stagingBuffer, nullptr );
+		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
+
+		// Create image view
+		m_imageView = CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags );
+	}
+
+	VkImageView GetImageView() const { return m_imageView; }
+
+	~Image()
+	{
+		// Destroy the image view
+		vkDestroyImageView( m_logicalDevice, m_imageView, nullptr );
+
+		// Destroy the image and free its memory
+		vkDestroyImage( m_logicalDevice, m_image, nullptr );
+		vkFreeMemory( m_logicalDevice, m_imageMemory, nullptr );
+	}
+};
