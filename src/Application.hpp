@@ -445,7 +445,7 @@ private:
 
 		// Iterate over the swapchain images and create an image view
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
-			m_swapchainImageViews[i] = CreateImageView( m_logicalDevice, m_swapchainImages[i], m_swapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT );
+			m_swapchainImageViews[i] = CreateImageView( m_logicalDevice, m_swapchainImages[i], m_swapchainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1 );
 	}
 
 	void CreateRenderPass()
@@ -998,7 +998,7 @@ private:
 	{
 		// Initialise an Image object from an image file using the correct parameters
 		m_textureImage.InitFromFile( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, TEXTURE_PATH.c_str(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-									 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+									 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
 									 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT );
 	}
 
@@ -1021,7 +1021,7 @@ private:
 		samplerCreateInfo.mipmapMode			  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 		samplerCreateInfo.mipLodBias			  = 0.0f;
 		samplerCreateInfo.minLod				  = 0.0f;
-		samplerCreateInfo.maxLod				  = 0.0f;
+		samplerCreateInfo.maxLod				  = static_cast<float>( m_textureImage.GetMipLevels() );
 
 		// Create the texture sampler
 		if ( vkCreateSampler( m_logicalDevice, &samplerCreateInfo, nullptr, &m_textureSampler ) != VK_SUCCESS )
@@ -1034,7 +1034,7 @@ private:
 		VkFormat depthFormat = FindDepthFormat( m_physicalDevice );
 
 		// Initialise an Image object using the correct parameters
-		m_depthImage.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_swapchainExtent.width, m_swapchainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+		m_depthImage.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_swapchainExtent.width, m_swapchainExtent.height, 1, depthFormat, VK_IMAGE_TILING_OPTIMAL,
 						   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 						   VK_IMAGE_ASPECT_DEPTH_BIT );
 	}
@@ -1165,7 +1165,7 @@ private:
 
 		// Set the uniform buffer object
 		UniformBufferObject ubo {};
-		ubo.model = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 90.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+		ubo.model = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 45.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 		ubo.view  = glm::lookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 		ubo.proj  = glm::perspective( glm::radians( FOV ), m_swapchainExtent.width / (float)m_swapchainExtent.height, 0.1f, 10.0f );
 
