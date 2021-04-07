@@ -63,8 +63,7 @@ private:
 	std::vector<VkFence>		 m_inFlightFences;
 	std::vector<VkFence>		 m_inFlightImages;
 	size_t						 m_currentFrame;
-	std::vector<Vertex>			 m_vertices;
-	std::vector<indexBufferType> m_indices;
+	Model						 m_environmentModel;
 	VkBuffer					 m_vertexBuffer;
 	VkDeviceMemory				 m_vertexBufferMemory;
 	VkBuffer					 m_indexBuffer;
@@ -126,7 +125,7 @@ private:
 		CreateTextureSampler();
 
 		// Load the model
-		LoadModel( MODEL_PATH.c_str(), &m_vertices, &m_indices );
+		m_environmentModel.LoadFromFile( MODEL_PATH.c_str() );
 
 		// Create a vertex buffer
 		CreateVertexBuffer();
@@ -809,7 +808,7 @@ private:
 			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[i], 0, nullptr );
 
 			// Record the drawing of the triangle
-			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_indices.size() ), 1, 0, 0, 0 );
+			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_environmentModel.GetIndices().size() ), 1, 0, 0, 0 );
 
 			// Record the end of the render pass
 			vkCmdEndRenderPass( m_commandBuffers[i] );
@@ -849,15 +848,21 @@ private:
 
 	void CreateVertexBuffer()
 	{
+		// Get the vertices from the model
+		auto vertices = m_environmentModel.GetVertices();
+
 		// Create a vertex buffer using a staging buffer
-		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_vertices.size() * sizeof( Vertex ), m_vertices.data(),
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
 	}
 
 	void CreateIndexBuffer()
 	{
+		// Get the indices from the model
+		auto indices = m_environmentModel.GetIndices();
+
 		// Create an index buffer using a staging buffer
-		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_indices.size() * sizeof( m_indices[0] ), m_indices.data(),
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_indexBuffer, &m_indexBufferMemory );
 	}
 
@@ -1147,7 +1152,7 @@ private:
 		m_currentFrame = ( m_currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
 	}
 
-	void UpdateUniformBuffer( uint32_t currentImage )
+	void UpdateUniformBuffer( const uint32_t& currentImage )
 	{
 		// Set the current time at the start of the function
 		static auto startTime = std::chrono::high_resolution_clock::now();

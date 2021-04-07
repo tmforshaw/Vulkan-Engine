@@ -74,7 +74,7 @@ static VkPresentModeKHR ChooseSwapPresentMode( const std::vector<VkPresentModeKH
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-static VkExtent2D ChooseSwapExtent( const VkSurfaceCapabilitiesKHR &p_capabilities, GLFWwindow *&p_window )
+static VkExtent2D ChooseSwapExtent( const VkSurfaceCapabilitiesKHR &p_capabilities, GLFWwindow *p_window )
 {
 	if ( p_capabilities.currentExtent.width != (uint32_t)-1 ) // If it isnt equal to the uint32_t value
 		return p_capabilities.currentExtent;

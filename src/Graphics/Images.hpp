@@ -267,7 +267,7 @@ public:
 		m_imageView = CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags );
 	}
 
-	VkImageView GetImageView() const { return m_imageView; }
+	inline const VkImageView& GetImageView() const { return m_imageView; }
 
 	~Image()
 	{
