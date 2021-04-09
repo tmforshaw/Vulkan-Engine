@@ -4,6 +4,7 @@
 #include "Buffers/Vertex.hpp"
 #include "Graphics/Images.hpp"
 #include "Graphics/Models.hpp"
+#include "Graphics/Multisampling.hpp"
 #include "Graphics/Shaders.hpp"
 #include "Graphics/Textures.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
@@ -73,11 +74,14 @@ private:
 	std::vector<VkBuffer>		 m_uniformBuffers;
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
 	Image						 m_depthImage;
+	Image						 m_colourImage;
+	VkSampleCountFlagBits		 m_msaaSampleCount;
 
 	bool m_framebufferResized;
 
 	void InitVulkan()
 	{
+
 		// Create a Vulkan instance
 		CreateVulkanInstance();
 
@@ -90,6 +94,9 @@ private:
 		// Setup the graphics card to use
 		m_physicalDevice = VK_NULL_HANDLE; // Set a default value for m_physicalDevice
 		PickPhysicalDevice();			   // Pick a suitable device
+
+		// Initialise multisampling sample count
+		m_msaaSampleCount = GetMaxUsableSampleCount( m_physicalDeviceProperties );
 
 		// Initialise the logical device
 		CreateLogicalDevice();
@@ -111,6 +118,9 @@ private:
 
 		// Create the command pool
 		CreateCommandPool();
+
+		// Create a secondary render target for multisampling
+		CreateColourResources();
 
 		// Create the depth buffer resources
 		CreateDepthResources();
@@ -277,7 +287,12 @@ private:
 			// Set the class physical device to the first suitable device
 			if ( IsDeviceSuitable( device, m_surface ) )
 			{
+				// Set the physical device
 				m_physicalDevice = device;
+
+				// Query the device properties
+				vkGetPhysicalDeviceProperties( m_physicalDevice, &m_physicalDeviceProperties );
+
 				break;
 			}
 		}
@@ -285,9 +300,6 @@ private:
 		// Check if a device was found
 		if ( m_physicalDevice == VK_NULL_HANDLE )
 			throw std::runtime_error( "Failed to find a suitable GPU" ); // Device wasn't found
-
-		// Query the device properties
-		vkGetPhysicalDeviceProperties( m_physicalDevice, &m_physicalDeviceProperties );
 	}
 
 	void CreateLogicalDevice()
@@ -325,6 +337,7 @@ private:
 		// Specify the device features to use
 		VkPhysicalDeviceFeatures deviceFeatures {};
 		deviceFeatures.samplerAnisotropy = VK_TRUE;
+		deviceFeatures.sampleRateShading = VK_TRUE; // Sample shading for textures
 
 		// Create the logical device
 		VkDeviceCreateInfo createInfo {};
@@ -447,24 +460,35 @@ private:
 		// Set colour attachment settings
 		VkAttachmentDescription colourAttatchment {};
 		colourAttatchment.format		 = m_swapchainImageFormat;
-		colourAttatchment.samples		 = VK_SAMPLE_COUNT_1_BIT;
+		colourAttatchment.samples		 = m_msaaSampleCount;
 		colourAttatchment.loadOp		 = VK_ATTACHMENT_LOAD_OP_CLEAR;	 // Clear the framebuffer to black each frame
 		colourAttatchment.storeOp		 = VK_ATTACHMENT_STORE_OP_STORE; // Store the contents into memory
 		colourAttatchment.stencilLoadOp	 = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colourAttatchment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colourAttatchment.initialLayout	 = VK_IMAGE_LAYOUT_UNDEFINED;
-		colourAttatchment.finalLayout	 = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colourAttatchment.finalLayout	 = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		// Set colour attachment settings
 		VkAttachmentDescription depthAttachment {};
 		depthAttachment.format		   = FindDepthFormat( m_physicalDevice );
-		depthAttachment.samples		   = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.samples		   = m_msaaSampleCount;
 		depthAttachment.loadOp		   = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depthAttachment.storeOp		   = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout	   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		// Add a resolve attachment for multisampling
+		VkAttachmentDescription colourResolveAttachment {};
+		colourResolveAttachment.format		   = m_swapchainImageFormat;
+		colourResolveAttachment.samples		   = VK_SAMPLE_COUNT_1_BIT;
+		colourResolveAttachment.loadOp		   = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colourResolveAttachment.storeOp		   = VK_ATTACHMENT_STORE_OP_STORE;
+		colourResolveAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colourResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colourResolveAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+		colourResolveAttachment.finalLayout	   = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		// Setup the colour attachment reference
 		VkAttachmentReference colourAttatchmentRef {};
@@ -476,12 +500,18 @@ private:
 		depthAttachmentRef.attachment = 1;
 		depthAttachmentRef.layout	  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+		// Setup the colour resolve attachment reference
+		VkAttachmentReference colourResolveAttachmentRef {};
+		colourResolveAttachmentRef.attachment = 2;
+		colourResolveAttachmentRef.layout	  = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 		// Create a subpass description
 		VkSubpassDescription subpass {};
 		subpass.pipelineBindPoint		= VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount	= 1; // Index of colour attachment
 		subpass.pColorAttachments		= &colourAttatchmentRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+		subpass.pResolveAttachments		= &colourResolveAttachmentRef;
 
 		// Set a dependency for the image to be acquired before the subpass starts
 		VkSubpassDependency dependency {};
@@ -493,7 +523,7 @@ private:
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;		   // The operations that should wait
 
 		// Create an array of attachment descriptions
-		std::array<VkAttachmentDescription, 2> attachments = { colourAttatchment, depthAttachment };
+		std::array<VkAttachmentDescription, 3> attachments = { colourAttatchment, depthAttachment, colourResolveAttachment };
 
 		// Set the render pass create info
 		VkRenderPassCreateInfo renderPassCreateInfo {};
@@ -602,9 +632,9 @@ private:
 			// Configure multisampling
 			VkPipelineMultisampleStateCreateInfo multisamplingCreateInfo {};
 			multisamplingCreateInfo.sType				  = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-			multisamplingCreateInfo.sampleShadingEnable	  = VK_FALSE;
-			multisamplingCreateInfo.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
-			multisamplingCreateInfo.minSampleShading	  = 1.0f;
+			multisamplingCreateInfo.sampleShadingEnable	  = VK_TRUE;
+			multisamplingCreateInfo.rasterizationSamples  = m_msaaSampleCount;
+			multisamplingCreateInfo.minSampleShading	  = 0.2f; // Closer to 1 is smoother
 			multisamplingCreateInfo.pSampleMask			  = nullptr;
 			multisamplingCreateInfo.alphaToCoverageEnable = VK_FALSE;
 			multisamplingCreateInfo.alphaToOneEnable	  = VK_FALSE;
@@ -706,7 +736,7 @@ private:
 		for ( size_t i = 0; i < m_swapchainImageViews.size(); i++ )
 		{
 			// Create an image view array
-			std::array<VkImageView, 2> attachments = { m_swapchainImageViews[i], m_depthImage.GetImageView() };
+			std::array<VkImageView, 3> attachments = { m_colourImage.GetImageView(), m_depthImage.GetImageView(), m_swapchainImageViews[i] };
 
 			// Setup the framebuffer create information
 			VkFramebufferCreateInfo framebufferCreateInfo {};
@@ -994,13 +1024,24 @@ private:
 		Model model;
 
 		// Initialise the model and its texture
-		model.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, VK_FORMAT_R8G8B8A8_SRGB,
-					VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					VK_IMAGE_ASPECT_COLOR_BIT );
+		model.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
+
+		// model.TransitionTextureLayout( m_commandPool, m_graphicsQueue, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
 		// Add to the models vector
 		m_models.push_back( model );
+	}
+
+	void CreateColourResources()
+	{
+		// Find a suitable format
+		VkFormat colourFormat = m_swapchainImageFormat;
+
+		// Initialise an Image object using the correct parameters
+		m_colourImage.Init( m_logicalDevice, m_physicalDevice, m_swapchainExtent.width, m_swapchainExtent.height, 1, m_msaaSampleCount, colourFormat, VK_IMAGE_TILING_OPTIMAL,
+							VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 	}
 
 	void CreateDepthResources()
@@ -1009,9 +1050,11 @@ private:
 		VkFormat depthFormat = FindDepthFormat( m_physicalDevice );
 
 		// Initialise an Image object using the correct parameters
-		m_depthImage.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_swapchainExtent.width, m_swapchainExtent.height, 1, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-						   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		m_depthImage.Init( m_logicalDevice, m_physicalDevice, m_swapchainExtent.width, m_swapchainExtent.height, 1, m_msaaSampleCount, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+						   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 						   VK_IMAGE_ASPECT_DEPTH_BIT );
+
+		m_depthImage.TransitionLayout( m_commandPool, m_graphicsQueue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
 	}
 
 	void RecreateSwapchain()
@@ -1039,6 +1082,7 @@ private:
 		CreateImageViews();
 		CreateRenderPass();
 		CreateGraphicsPipeline(); // This can be avoided by using dynamic states for the scissor and viewport
+		CreateColourResources();
 		CreateDepthResources();
 		CreateFramebuffers();
 		CreateUniformBuffers();
@@ -1140,7 +1184,7 @@ private:
 
 		// Set the uniform buffer object
 		UniformBufferObject ubo {};
-		ubo.model = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 45.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+		ubo.model = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 		ubo.view  = glm::lookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 		ubo.proj  = glm::perspective( glm::radians( FOV ), m_swapchainExtent.width / (float)m_swapchainExtent.height, 0.1f, 10.0f );
 
@@ -1172,6 +1216,9 @@ private:
 	{
 		// Destroy the depth buffer image
 		m_depthImage.Cleanup();
+
+		// Destroy the colour buffer image
+		m_colourImage.Cleanup();
 
 		// Destroy the framebuffers
 		for ( const auto& framebuffer : m_swapchainFramebuffers )

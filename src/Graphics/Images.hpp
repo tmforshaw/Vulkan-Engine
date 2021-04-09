@@ -120,7 +120,7 @@ static void CopyBufferToImage( const VkDevice& p_logicalDevice, const VkCommandP
 	EndSingleTimeCommands( p_logicalDevice, p_graphicsQueue, p_commandPool, commandBuffer );
 }
 
-static void CreateImage( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t& p_width, const uint32_t& p_height, const uint32_t& p_mipLevels, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, VkImage* p_image, VkDeviceMemory* p_imageMemory )
+static void CreateImage( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t& p_width, const uint32_t& p_height, const uint32_t& p_mipLevels, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, const VkSampleCountFlagBits& p_sampleCount, VkImage* p_image, VkDeviceMemory* p_imageMemory )
 {
 	// Setup the create information for the image
 	VkImageCreateInfo imageCreateInfo {};
@@ -136,7 +136,7 @@ static void CreateImage( const VkDevice& p_logicalDevice, const VkPhysicalDevice
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageCreateInfo.usage		  = p_usage;
 	imageCreateInfo.sharingMode	  = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.samples		  = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.samples		  = p_sampleCount;
 	imageCreateInfo.flags		  = 0;
 
 	// Create the image
@@ -197,23 +197,28 @@ protected:
 	VkDeviceMemory				 m_imageMemory;
 	std::shared_ptr<VkImageView> m_imageView;
 	VkDevice					 m_logicalDevice;
+	VkFormat					 m_format;
 
 public:
-	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
-			   const uint32_t p_width, const uint32_t p_height, const uint32_t& p_mipLevels, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage,
-			   const VkMemoryPropertyFlags& p_properties, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout, const VkImageAspectFlags& p_aspectFlags )
+	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t p_width, const uint32_t p_height, const uint32_t& p_mipLevels,
+			   const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage,
+			   const VkMemoryPropertyFlags& p_properties, const VkImageAspectFlags& p_aspectFlags )
 	{
 		// Set the member variables using the parameters
 		m_logicalDevice = p_logicalDevice;
+		m_format		= p_format;
 
 		// Create the image
-		CreateImage( m_logicalDevice, p_physicalDevice, p_width, p_height, 1, p_format, p_tiling, p_usage, p_properties, &m_image, &m_imageMemory );
-
-		// Transition the layout of the image to an optimal layout
-		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, p_oldLayout, p_newLayout, 1 );
+		CreateImage( m_logicalDevice, p_physicalDevice, p_width, p_height, 1, m_format, p_tiling, p_usage, p_properties, p_sampleCount, &m_image, &m_imageMemory );
 
 		// Create image view
-		m_imageView = std::make_shared<VkImageView>( CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags, 1 ) );
+		m_imageView = std::make_shared<VkImageView>( CreateImageView( m_logicalDevice, m_image, m_format, p_aspectFlags, 1 ) );
+	}
+
+	virtual void TransitionLayout( const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout )
+	{
+		// Transition the layout of the image
+		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, m_format, p_oldLayout, p_newLayout, 1 );
 	}
 
 	inline const VkImageView& GetImageView() const { return *m_imageView; }

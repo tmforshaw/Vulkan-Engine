@@ -80,26 +80,31 @@ public:
 	}
 
 	void LoadTexture( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
-					  const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const char* path, const VkFormat& p_format, const VkImageTiling& p_tiling,
-					  const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout,
-					  const VkImageLayout& p_finalLayout, const VkImageAspectFlags& p_aspectFlags )
+					  const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const char* path, const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling,
+					  const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
+					  const VkImageAspectFlags& p_aspectFlags )
 	{
-		m_texture.Init( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, path, p_format, p_tiling, p_usage, p_properties,
-						p_oldLayout, p_newLayout, p_finalLayout, p_aspectFlags );
+		m_texture.Init( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, path, p_sampleCount, p_format, p_tiling, p_usage, p_properties,
+						p_aspectFlags );
 	}
 
-	void Init( const char* modelPath, const char* texturePath, const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
+	void Init( const char* modelPath, const char* texturePath, const VkSampleCountFlagBits& p_sampleCount, const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
 			   const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const VkFormat& p_format, const VkImageTiling& p_tiling,
-			   const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout,
-			   const VkImageLayout& p_finalLayout, const VkImageAspectFlags& p_aspectFlags )
+			   const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
+			   const VkImageAspectFlags& p_aspectFlags )
 	{
 
 		// Load the texture
-		LoadTexture( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, texturePath, p_format, p_tiling, p_usage, p_properties,
-					 p_oldLayout, p_newLayout, p_finalLayout, p_aspectFlags );
+		LoadTexture( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, texturePath, p_sampleCount, p_format, p_tiling, p_usage, p_properties,
+					 p_aspectFlags );
 
 		// Load the vertices and indices
 		LoadModel( modelPath );
+	}
+
+	void TransitionTextureLayout( const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout )
+	{
+		m_texture.TransitionLayout( p_commandPool, p_graphicsQueue, p_oldLayout, p_newLayout );
 	}
 
 	inline const std::vector<Vertex>&		   GetVertices() const { return m_vertices; }
