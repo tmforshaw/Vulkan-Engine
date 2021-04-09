@@ -195,7 +195,7 @@ class Image
 protected:
 	VkImage						 m_image;
 	VkDeviceMemory				 m_imageMemory;
-	std::unique_ptr<VkImageView> m_imageView;
+	std::shared_ptr<VkImageView> m_imageView;
 	VkDevice					 m_logicalDevice;
 
 public:
@@ -213,7 +213,7 @@ public:
 		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, p_oldLayout, p_newLayout, 1 );
 
 		// Create image view
-		m_imageView = std::make_unique<VkImageView>( CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags, 1 ) );
+		m_imageView = std::make_shared<VkImageView>( CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags, 1 ) );
 	}
 
 	inline const VkImageView& GetImageView() const { return *m_imageView; }

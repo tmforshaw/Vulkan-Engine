@@ -65,7 +65,7 @@ private:
 	std::vector<VkFence>		 m_inFlightFences;
 	std::vector<VkFence>		 m_inFlightImages;
 	size_t						 m_currentFrame;
-	Model						 m_environmentModel;
+	std::vector<Model>			 m_models;
 	VkBuffer					 m_vertexBuffer;
 	VkDeviceMemory				 m_vertexBufferMemory;
 	VkBuffer					 m_indexBuffer;
@@ -802,7 +802,7 @@ private:
 			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[i], 0, nullptr );
 
 			// Record the drawing of the triangle
-			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_environmentModel.GetIndices().size() ), 1, 0, 0, 0 );
+			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_models[0].GetIndices().size() ), 1, 0, 0, 0 );
 
 			// Record the end of the render pass
 			vkCmdEndRenderPass( m_commandBuffers[i] );
@@ -843,7 +843,7 @@ private:
 	void CreateVertexBuffer()
 	{
 		// Get the vertices from the model
-		auto vertices = m_environmentModel.GetVertices();
+		std::vector<Vertex> vertices = m_models[0].GetVertices();
 
 		// Create a vertex buffer using a staging buffer
 		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
@@ -853,7 +853,7 @@ private:
 	void CreateIndexBuffer()
 	{
 		// Get the indices from the model
-		auto indices = m_environmentModel.GetIndices();
+		std::vector<IndexBufferType> indices = m_models[0].GetIndices();
 
 		// Create an index buffer using a staging buffer
 		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
@@ -957,8 +957,8 @@ private:
 			// Configure the descriptors using image information
 			VkDescriptorImageInfo imageInfo {};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView	  = m_environmentModel.GetTexture().GetImageView();
-			imageInfo.sampler	  = m_environmentModel.GetTexture().GetSampler();
+			imageInfo.imageView	  = m_models[0].GetTexture().GetImageView();
+			imageInfo.sampler	  = m_models[0].GetTexture().GetSampler();
 
 			// Create an array of the write descriptor sets
 			std::array<VkWriteDescriptorSet, 2> descriptorsWrites {};
@@ -990,11 +990,17 @@ private:
 
 	void CreateEnvironmentModel()
 	{
+		// Create a model object
+		Model model;
+
 		// Initialise the model and its texture
-		m_environmentModel.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, VK_FORMAT_R8G8B8A8_SRGB,
-								 VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-								 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-								 VK_IMAGE_ASPECT_COLOR_BIT );
+		model.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, VK_FORMAT_R8G8B8A8_SRGB,
+					VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					VK_IMAGE_ASPECT_COLOR_BIT );
+
+		// Add to the models vector
+		m_models.push_back( model );
 	}
 
 	void CreateDepthResources()
@@ -1206,8 +1212,15 @@ private:
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
 
-		// Destroy the model
-		m_environmentModel.Cleanup();
+		// Destroy the models
+		for ( auto& model : m_models )
+		{
+			// Cleanup the model resources
+			model.Cleanup();
+
+			// // Clear the pointer
+			// model.reset();
+		}
 
 		// Destroy the descriptor set layout
 		vkDestroyDescriptorSetLayout( m_logicalDevice, m_descriptorSetLayout, nullptr );
