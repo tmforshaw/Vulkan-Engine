@@ -5,6 +5,7 @@
 #include "Graphics/Images.hpp"
 #include "Graphics/Models.hpp"
 #include "Graphics/Shaders.hpp"
+#include "Graphics/Textures.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
 #include "VulkanUtil/DeviceAndExtensions.hpp"
 #include "VulkanUtil/ImageView.hpp"
@@ -70,8 +71,7 @@ private:
 	VkDeviceMemory				 m_indexBufferMemory;
 	std::vector<VkBuffer>		 m_uniformBuffers;
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
-	Image						 m_textureImage;
-	VkSampler					 m_textureSampler;
+	Texture						 m_environmentTexture;
 	Image						 m_depthImage;
 
 	bool m_framebufferResized;
@@ -120,9 +120,6 @@ private:
 
 		// Create a texture
 		CreateTextureImage();
-
-		// Create an texture sampler
-		CreateTextureSampler();
 
 		// Load the model
 		m_environmentModel.LoadFromFile( MODEL_PATH.c_str() );
@@ -963,8 +960,8 @@ private:
 			// Configure the descriptors using image information
 			VkDescriptorImageInfo imageInfo {};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView	  = m_textureImage.GetImageView();
-			imageInfo.sampler	  = m_textureSampler;
+			imageInfo.imageView	  = m_environmentTexture.GetImageView();
+			imageInfo.sampler	  = m_environmentTexture.GetSampler();
 
 			// Create an array of the write descriptor sets
 			std::array<VkWriteDescriptorSet, 2> descriptorsWrites {};
@@ -996,36 +993,11 @@ private:
 
 	void CreateTextureImage()
 	{
-		// Initialise an Image object from an image file using the correct parameters
-		m_textureImage.InitFromFile( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, TEXTURE_PATH.c_str(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-									 VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-									 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT );
-	}
-
-	void CreateTextureSampler()
-	{
-		// Setup the create information for the texture sampler
-		VkSamplerCreateInfo samplerCreateInfo {};
-		samplerCreateInfo.sType					  = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter				  = VK_FILTER_LINEAR;
-		samplerCreateInfo.minFilter				  = VK_FILTER_LINEAR;
-		samplerCreateInfo.addressModeU			  = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		samplerCreateInfo.addressModeV			  = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		samplerCreateInfo.addressModeW			  = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		samplerCreateInfo.anisotropyEnable		  = VK_TRUE;
-		samplerCreateInfo.maxAnisotropy			  = m_physicalDeviceProperties.limits.maxSamplerAnisotropy;
-		samplerCreateInfo.borderColor			  = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-		samplerCreateInfo.compareEnable			  = VK_FALSE;
-		samplerCreateInfo.compareOp				  = VK_COMPARE_OP_ALWAYS;
-		samplerCreateInfo.mipmapMode			  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.mipLodBias			  = 0.0f;
-		samplerCreateInfo.minLod				  = 0.0f;
-		samplerCreateInfo.maxLod				  = static_cast<float>( m_textureImage.GetMipLevels() );
-
-		// Create the texture sampler
-		if ( vkCreateSampler( m_logicalDevice, &samplerCreateInfo, nullptr, &m_textureSampler ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to create texture sampler" );
+		// Initialise a Texture object from an image file using the correct parameters
+		m_environmentTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, TEXTURE_PATH.c_str(), VK_FORMAT_R8G8B8A8_SRGB,
+								   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+								   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+								   VK_IMAGE_ASPECT_COLOR_BIT );
 	}
 
 	void CreateDepthResources()
@@ -1196,7 +1168,7 @@ private:
 	void CleanupSwapchain()
 	{
 		// Destroy the depth buffer image
-		m_depthImage.~Image();
+		m_depthImage.Cleanup();
 
 		// Destroy the framebuffers
 		for ( const auto& framebuffer : m_swapchainFramebuffers )
@@ -1237,11 +1209,8 @@ private:
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
 
-		// Destroy the texture sampler
-		vkDestroySampler( m_logicalDevice, m_textureSampler, nullptr );
-
-		// Destroy the texture image
-		m_textureImage.~Image();
+		// Destroy the texture
+		m_environmentTexture.Cleanup();
 
 		// Destroy the descriptor set layout
 		vkDestroyDescriptorSetLayout( m_logicalDevice, m_descriptorSetLayout, nullptr );
