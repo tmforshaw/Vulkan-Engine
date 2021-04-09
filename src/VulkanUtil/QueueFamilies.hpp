@@ -14,17 +14,17 @@ struct QueueFamilyIndices
 	}
 };
 
-static QueueFamilyIndices FindQueueFamilies( const VkPhysicalDevice& p_device, const VkSurfaceKHR& p_surface )
+static QueueFamilyIndices FindQueueFamilies( const VkPhysicalDevice& p_physicalDevice, const VkSurfaceKHR& p_surface )
 {
 	QueueFamilyIndices indices;
 
 	// Get the amount of queue families
 	uint32_t queueFamilyCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties( p_device, &queueFamilyCount, nullptr );
+	vkGetPhysicalDeviceQueueFamilyProperties( p_physicalDevice, &queueFamilyCount, nullptr );
 
 	// Get the queue families
 	VkQueueFamilyProperties queueFamilies[queueFamilyCount];
-	vkGetPhysicalDeviceQueueFamilyProperties( p_device, &queueFamilyCount, queueFamilies );
+	vkGetPhysicalDeviceQueueFamilyProperties( p_physicalDevice, &queueFamilyCount, queueFamilies );
 
 	{ // Inside of a scope to destroy presentSupport
 		VkBool32 presentSupport = false;
@@ -35,7 +35,7 @@ static QueueFamilyIndices FindQueueFamilies( const VkPhysicalDevice& p_device, c
 				indices.graphicsFamily = i; // Set the graphics family to this index
 
 			// Query the queue family for window surface support
-			vkGetPhysicalDeviceSurfaceSupportKHR( p_device, i, p_surface, &presentSupport );
+			vkGetPhysicalDeviceSurfaceSupportKHR( p_physicalDevice, i, p_surface, &presentSupport );
 			if ( presentSupport ) indices.presentFamily = i; // Set the presentation family to this index
 
 			// Exit loop if the indices are complete
