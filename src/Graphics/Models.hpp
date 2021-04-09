@@ -2,6 +2,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include "../Buffers/Vertex.hpp"
+#include "../Graphics/Textures.hpp"
 
 #include <glm/gtx/hash.hpp>
 #include <stdexcept>
@@ -32,9 +33,10 @@ class Model
 private:
 	std::vector<Vertex>			 m_vertices;
 	std::vector<IndexBufferType> m_indices;
+	Texture						 m_texture;
 
 public:
-	void LoadFromFile( const char* path )
+	void LoadModel( const char* path )
 	{
 		tinyobj::attrib_t							attrib;
 		std::vector<tinyobj::shape_t>				shapes;
@@ -77,8 +79,38 @@ public:
 		}
 	}
 
+	void LoadTexture( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
+					  const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const char* path, const VkFormat& p_format, const VkImageTiling& p_tiling,
+					  const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout,
+					  const VkImageLayout& p_finalLayout, const VkImageAspectFlags& p_aspectFlags )
+	{
+		m_texture.Init( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, path, p_format, p_tiling, p_usage, p_properties,
+						p_oldLayout, p_newLayout, p_finalLayout, p_aspectFlags );
+	}
+
+	void Init( const char* modelPath, const char* texturePath, const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
+			   const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const VkFormat& p_format, const VkImageTiling& p_tiling,
+			   const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout,
+			   const VkImageLayout& p_finalLayout, const VkImageAspectFlags& p_aspectFlags )
+	{
+
+		// Load the texture
+		LoadTexture( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, texturePath, p_format, p_tiling, p_usage, p_properties,
+					 p_oldLayout, p_newLayout, p_finalLayout, p_aspectFlags );
+
+		// Load the vertices and indices
+		LoadModel( modelPath );
+	}
+
 	inline const std::vector<Vertex>&		   GetVertices() const { return m_vertices; }
 	inline const std::vector<IndexBufferType>& GetIndices() const { return m_indices; }
+
+	inline const Texture& GetTexture() const { return m_texture; }
+
+	inline void Cleanup()
+	{
+		m_texture.Cleanup();
+	}
 };
 
 // // clang-format off

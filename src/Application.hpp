@@ -72,7 +72,6 @@ private:
 	VkDeviceMemory				 m_indexBufferMemory;
 	std::vector<VkBuffer>		 m_uniformBuffers;
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
-	Texture						 m_environmentTexture;
 	Image						 m_depthImage;
 
 	bool m_framebufferResized;
@@ -119,11 +118,8 @@ private:
 		// Create the framebuffers
 		CreateFramebuffers();
 
-		// Create a texture
-		CreateTextureImage();
-
-		// Load the model
-		m_environmentModel.LoadFromFile( MODEL_PATH.c_str() );
+		// Load the environment model
+		CreateEnvironmentModel();
 
 		// Create a vertex buffer
 		CreateVertexBuffer();
@@ -961,8 +957,8 @@ private:
 			// Configure the descriptors using image information
 			VkDescriptorImageInfo imageInfo {};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView	  = m_environmentTexture.GetImageView();
-			imageInfo.sampler	  = m_environmentTexture.GetSampler();
+			imageInfo.imageView	  = m_environmentModel.GetTexture().GetImageView();
+			imageInfo.sampler	  = m_environmentModel.GetTexture().GetSampler();
 
 			// Create an array of the write descriptor sets
 			std::array<VkWriteDescriptorSet, 2> descriptorsWrites {};
@@ -992,13 +988,13 @@ private:
 		}
 	}
 
-	void CreateTextureImage()
+	void CreateEnvironmentModel()
 	{
-		// Initialise a Texture object from an image file using the correct parameters
-		m_environmentTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, TEXTURE_PATH.c_str(), VK_FORMAT_R8G8B8A8_SRGB,
-								   VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-								   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-								   VK_IMAGE_ASPECT_COLOR_BIT );
+		// Initialise the model and its texture
+		m_environmentModel.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, VK_FORMAT_R8G8B8A8_SRGB,
+								 VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+								 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+								 VK_IMAGE_ASPECT_COLOR_BIT );
 	}
 
 	void CreateDepthResources()
@@ -1210,8 +1206,8 @@ private:
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
 
-		// Destroy the texture
-		m_environmentTexture.Cleanup();
+		// Destroy the model
+		m_environmentModel.Cleanup();
 
 		// Destroy the descriptor set layout
 		vkDestroyDescriptorSetLayout( m_logicalDevice, m_descriptorSetLayout, nullptr );
