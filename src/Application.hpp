@@ -24,8 +24,9 @@
 #include <vector>
 
 // Constants
-const uint16_t WINDOW_WIDTH	 = 700;
-const uint16_t WINDOW_HEIGHT = 700;
+const uint16_t WINDOW_WIDTH	 = 1920;
+const uint16_t WINDOW_HEIGHT = 1080;
+const char*	   WINDOW_TITLE	 = "Waguan-o-tron 5000";
 
 const std::string MODEL_PATH   = "resources/models/viking_room.obj";
 const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
@@ -158,7 +159,7 @@ private:
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
 
 		// Set the window variable
-		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, "Vulkan", nullptr, nullptr );
+		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr );
 
 		// State that the window hasn't been resized yet
 		m_framebufferResized = false;
