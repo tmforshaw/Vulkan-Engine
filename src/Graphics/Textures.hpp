@@ -119,7 +119,8 @@ public:
 			   const VkImageAspectFlags& p_aspectFlags )
 	{
 		// Set the member variables using the parameters
-		m_logicalDevice = p_logicalDevice;
+		m_logicalDevice = const_cast<VkDevice*>( &p_logicalDevice );
+		m_format		= const_cast<VkFormat*>( &p_format );
 
 		// Get the pixels
 		int		 texWidth, texHeight, texChannels;
@@ -138,38 +139,38 @@ public:
 		// Create a staging buffer and some memory for the image
 		VkBuffer	   stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
-		CreateBuffer( m_logicalDevice, p_physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
+		CreateBuffer( *m_logicalDevice, p_physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory );
 
 		// Copy the data (Map memory to CPU accessible memory, copy, un-map CPU accessible memory)
 		void* mappedMemPtr;
-		vkMapMemory( m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &mappedMemPtr );
+		vkMapMemory( *m_logicalDevice, stagingBufferMemory, 0, imageSize, 0, &mappedMemPtr );
 		memcpy( mappedMemPtr, pixels, static_cast<uint32_t>( imageSize ) );
-		vkUnmapMemory( m_logicalDevice, stagingBufferMemory );
+		vkUnmapMemory( *m_logicalDevice, stagingBufferMemory );
 
 		// Free the original pixel array
 		stbi_image_free( pixels );
 
 		// Create the image
-		CreateImage( m_logicalDevice, p_physicalDevice, texWidth, texHeight, m_mipLevels, p_format, p_tiling, p_usage, p_properties, p_sampleCount, &m_image, &m_imageMemory );
+		CreateImage( *m_logicalDevice, p_physicalDevice, texWidth, texHeight, m_mipLevels, p_format, p_tiling, p_usage, p_properties, p_sampleCount, &m_image, &m_imageMemory );
 
 		// Transition the layout to the first format
 		TransitionLayout( p_commandPool, p_graphicsQueue, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL );
 
 		// Copy the buffer to the image
-		CopyBufferToImage( m_logicalDevice, p_commandPool, p_graphicsQueue, stagingBuffer, m_image, static_cast<uint32_t>( texWidth ), static_cast<uint32_t>( texHeight ) );
+		CopyBufferToImage( *m_logicalDevice, p_commandPool, p_graphicsQueue, stagingBuffer, m_image, static_cast<uint32_t>( texWidth ), static_cast<uint32_t>( texHeight ) );
 
 		if ( m_mipLevels > 1 )
 		{
 			// Generate the mipmaps for the image (LOD)
-			GenerateMipmaps( m_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, texWidth, texHeight, m_mipLevels );
+			GenerateMipmaps( *m_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, m_image, p_format, texWidth, texHeight, m_mipLevels );
 		}
 
 		// Destroy the staging buffer and free its memory
-		vkDestroyBuffer( m_logicalDevice, stagingBuffer, nullptr );
-		vkFreeMemory( m_logicalDevice, stagingBufferMemory, nullptr );
+		vkDestroyBuffer( *m_logicalDevice, stagingBuffer, nullptr );
+		vkFreeMemory( *m_logicalDevice, stagingBufferMemory, nullptr );
 
 		// Create image view
-		m_imageView = std::make_unique<VkImageView>( CreateImageView( m_logicalDevice, m_image, p_format, p_aspectFlags, m_mipLevels ) );
+		m_imageView = std::make_unique<VkImageView>( CreateImageView( *m_logicalDevice, m_image, p_format, p_aspectFlags, m_mipLevels ) );
 
 		// Generate the texture sampler
 		CreateSampler( p_physicalDeviceProperties );
@@ -178,7 +179,7 @@ public:
 	void TransitionLayout( const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout ) override
 	{
 		// Transition the layout of the image
-		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, m_format, p_oldLayout, p_newLayout, m_mipLevels );
+		TransitionImageLayout( *m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, *m_format, p_oldLayout, p_newLayout, m_mipLevels );
 	}
 
 	void CreateSampler( const VkPhysicalDeviceProperties& p_physicalDeviceProperties )
@@ -203,7 +204,7 @@ public:
 		samplerCreateInfo.maxLod				  = static_cast<float>( m_mipLevels );
 
 		// Create the texture sampler
-		if ( vkCreateSampler( m_logicalDevice, &samplerCreateInfo, nullptr, &m_sampler ) != VK_SUCCESS )
+		if ( vkCreateSampler( *m_logicalDevice, &samplerCreateInfo, nullptr, &m_sampler ) != VK_SUCCESS )
 			throw std::runtime_error( "Failed to create texture sampler" );
 	}
 
@@ -213,16 +214,16 @@ public:
 	void Cleanup() override
 	{
 		// Destroy the sampler
-		vkDestroySampler( m_logicalDevice, m_sampler, nullptr );
+		vkDestroySampler( *m_logicalDevice, m_sampler, nullptr );
 
 		// Destroy the image view
-		vkDestroyImageView( m_logicalDevice, *m_imageView, nullptr );
+		vkDestroyImageView( *m_logicalDevice, *m_imageView, nullptr );
 
 		// Destroy the pointer to the image view (This is a precautionary measure)
 		m_imageView.reset();
 
 		// Destroy the image and free its memory
-		vkDestroyImage( m_logicalDevice, m_image, nullptr );
-		vkFreeMemory( m_logicalDevice, m_imageMemory, nullptr );
+		vkDestroyImage( *m_logicalDevice, m_image, nullptr );
+		vkFreeMemory( *m_logicalDevice, m_imageMemory, nullptr );
 	}
 };

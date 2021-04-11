@@ -196,29 +196,29 @@ protected:
 	VkImage						 m_image;
 	VkDeviceMemory				 m_imageMemory;
 	std::shared_ptr<VkImageView> m_imageView;
-	VkDevice					 m_logicalDevice;
-	VkFormat					 m_format;
+	const VkDevice*				 m_logicalDevice;
+	const VkFormat*				 m_format;
 
 public:
-	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t p_width, const uint32_t p_height, const uint32_t& p_mipLevels,
-			   const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage,
-			   const VkMemoryPropertyFlags& p_properties, const VkImageAspectFlags& p_aspectFlags )
+	Image() : m_logicalDevice( nullptr ), m_format( nullptr ) {}
+
+	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t p_width, const uint32_t p_height, const uint32_t& p_mipLevels, const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, const VkImageAspectFlags& p_aspectFlags )
 	{
 		// Set the member variables using the parameters
-		m_logicalDevice = p_logicalDevice;
-		m_format		= p_format;
+		m_logicalDevice = const_cast<VkDevice*>( &p_logicalDevice );
+		m_format		= const_cast<VkFormat*>( &p_format );
 
 		// Create the image
-		CreateImage( m_logicalDevice, p_physicalDevice, p_width, p_height, 1, m_format, p_tiling, p_usage, p_properties, p_sampleCount, &m_image, &m_imageMemory );
+		CreateImage( *m_logicalDevice, p_physicalDevice, p_width, p_height, 1, *m_format, p_tiling, p_usage, p_properties, p_sampleCount, &m_image, &m_imageMemory );
 
 		// Create image view
-		m_imageView = std::make_shared<VkImageView>( CreateImageView( m_logicalDevice, m_image, m_format, p_aspectFlags, 1 ) );
+		m_imageView = std::make_shared<VkImageView>( CreateImageView( *m_logicalDevice, m_image, *m_format, p_aspectFlags, 1 ) );
 	}
 
 	virtual void TransitionLayout( const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkImageLayout& p_oldLayout, const VkImageLayout& p_newLayout )
 	{
 		// Transition the layout of the image
-		TransitionImageLayout( m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, m_format, p_oldLayout, p_newLayout, 1 );
+		TransitionImageLayout( *m_logicalDevice, p_commandPool, p_graphicsQueue, m_image, *m_format, p_oldLayout, p_newLayout, 1 );
 	}
 
 	inline const VkImageView& GetImageView() const { return *m_imageView; }
@@ -226,13 +226,13 @@ public:
 	virtual void Cleanup()
 	{
 		// Destroy the image view
-		vkDestroyImageView( m_logicalDevice, *m_imageView, nullptr );
+		vkDestroyImageView( *m_logicalDevice, *m_imageView, nullptr );
 
 		// Destroy the pointer to the image view (This is a precautionary measure)
 		m_imageView.reset();
 
 		// Destroy the image and free its memory
-		vkDestroyImage( m_logicalDevice, m_image, nullptr );
-		vkFreeMemory( m_logicalDevice, m_imageMemory, nullptr );
+		vkDestroyImage( *m_logicalDevice, m_image, nullptr );
+		vkFreeMemory( *m_logicalDevice, m_imageMemory, nullptr );
 	}
 };

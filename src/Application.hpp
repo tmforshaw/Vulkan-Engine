@@ -2,6 +2,9 @@
 #include "Buffers/Buffers.hpp"
 #include "Buffers/UniformBuffers.hpp"
 #include "Buffers/Vertex.hpp"
+#include "Descriptors/DescriptorPool.hpp"
+#include "Descriptors/DescriptorSetCollection.hpp"
+#include "Descriptors/DescriptorSetLayout.hpp"
 #include "Graphics/Images.hpp"
 #include "Graphics/Models.hpp"
 #include "Graphics/Multisampling.hpp"
@@ -30,7 +33,7 @@ const uint16_t WINDOW_HEIGHT = 1080;
 const char*	   WINDOW_TITLE	 = "Waguan-o-tron 5000";
 
 const std::string MODEL_PATH   = "resources/models/viking_room.obj";
-const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
+const std::string TEXTURE_PATH = "resources/textures/Kitten.jpeg";
 
 #define MAX_FRAMES_IN_FLIGHT 2	   // Maximum number of frames to process concurrently
 #define FOV					 45.0f // The camera field of view
@@ -38,23 +41,26 @@ const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
 class Application
 {
 private:
-	GLFWwindow*					 m_window;
-	VkInstance					 m_instance;
-	VkDebugUtilsMessengerEXT	 m_debugMessenger;
-	VkPhysicalDevice			 m_physicalDevice;
-	VkPhysicalDeviceProperties	 m_physicalDeviceProperties;
-	VkDevice					 m_logicalDevice;
-	VkQueue						 m_graphicsQueue;
-	VkQueue						 m_presentQueue;
-	VkSurfaceKHR				 m_surface;
-	VkSwapchainKHR				 m_swapchain;
-	std::vector<VkImage>		 m_swapchainImages;
-	VkFormat					 m_swapchainImageFormat;
-	VkExtent2D					 m_swapchainExtent;
-	std::vector<VkImageView>	 m_swapchainImageViews;
-	VkRenderPass				 m_renderPass;
-	VkDescriptorSetLayout		 m_descriptorSetLayout;
-	VkDescriptorPool			 m_descriptorPool;
+	GLFWwindow*				   m_window;
+	VkInstance				   m_instance;
+	VkDebugUtilsMessengerEXT   m_debugMessenger;
+	VkPhysicalDevice		   m_physicalDevice;
+	VkPhysicalDeviceProperties m_physicalDeviceProperties;
+	VkDevice				   m_logicalDevice;
+	VkQueue					   m_graphicsQueue;
+	VkQueue					   m_presentQueue;
+	VkSurfaceKHR			   m_surface;
+	VkSwapchainKHR			   m_swapchain;
+	std::vector<VkImage>	   m_swapchainImages;
+	VkFormat				   m_swapchainImageFormat;
+	VkExtent2D				   m_swapchainExtent;
+	std::vector<VkImageView>   m_swapchainImageViews;
+	VkRenderPass			   m_renderPass;
+	// VkDescriptorSetLayout	   m_descriptorSetLayout;
+	// VkDescriptorPool			 m_descriptorPool;
+	DescriptorPool		m_descriptorPool;
+	DescriptorSetLayout m_descriptorSetLayout;
+	// DescriptorSetCollection m_descriptorSets;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 	VkPipelineLayout			 m_pipelineLayout;
 	VkPipeline					 m_graphicsPipeline;
@@ -76,6 +82,8 @@ private:
 	Image						 m_depthImage;
 	Image						 m_colourImage;
 	VkSampleCountFlagBits		 m_msaaSampleCount;
+
+	Texture m_randomTexture;
 
 	bool m_framebufferResized;
 
@@ -690,7 +698,7 @@ private:
 			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
 			pipelineLayoutCreateInfo.sType					= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 			pipelineLayoutCreateInfo.setLayoutCount			= 1;
-			pipelineLayoutCreateInfo.pSetLayouts			= &m_descriptorSetLayout;
+			pipelineLayoutCreateInfo.pSetLayouts			= &m_descriptorSetLayout.GetLayout();
 			pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
 			pipelineLayoutCreateInfo.pPushConstantRanges	= nullptr;
 
@@ -893,33 +901,16 @@ private:
 	void CreateDescriptorSetLayout()
 	{
 		// Setup the descriptor set layout binding for the model view projection matrix
-		VkDescriptorSetLayoutBinding uboLayoutBinding {};
-		uboLayoutBinding.binding			= 0;
-		uboLayoutBinding.descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uboLayoutBinding.descriptorCount	= 1;
-		uboLayoutBinding.stageFlags			= VK_SHADER_STAGE_VERTEX_BIT;
-		uboLayoutBinding.pImmutableSamplers = nullptr;
+		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr );
 
 		// Setup the descriptor set layout binding
-		VkDescriptorSetLayoutBinding samplerLayoutBinding {};
-		samplerLayoutBinding.binding			= 1;
-		samplerLayoutBinding.descriptorType		= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		samplerLayoutBinding.descriptorCount	= 1;
-		samplerLayoutBinding.stageFlags			= VK_SHADER_STAGE_FRAGMENT_BIT;
-		samplerLayoutBinding.pImmutableSamplers = nullptr;
+		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
-		// Create an array of bindings
-		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
-
-		// Setup the descriptor set layout create information
-		VkDescriptorSetLayoutCreateInfo layoutCreateInfo {};
-		layoutCreateInfo.sType		  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutCreateInfo.bindingCount = static_cast<uint32_t>( bindings.size() );
-		layoutCreateInfo.pBindings	  = bindings.data();
+		// Setup the descriptor set layout binding 2
+		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// Create the descriptor set layout
-		if ( vkCreateDescriptorSetLayout( m_logicalDevice, &layoutCreateInfo, nullptr, &m_descriptorSetLayout ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to create descriptor set layout" );
+		m_descriptorSetLayout.CreateLayout( m_logicalDevice );
 	}
 
 	void CreateUniformBuffers()
@@ -936,44 +927,39 @@ private:
 
 	void CreateDescriptorPool()
 	{
-		// Setup the descriptor pool sizes
-		std::array<VkDescriptorPoolSize, 2> poolSizes {};
-		poolSizes[0].type			 = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = static_cast<uint32_t>( m_swapchainImages.size() );
-		poolSizes[1].type			 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = static_cast<uint32_t>( m_swapchainImages.size() );
+		// Add a uniform buffer descriptor size
+		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
-		// Setup the create information for the decriptor pool
-		VkDescriptorPoolCreateInfo poolCreateInfo {};
-		poolCreateInfo.sType		 = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolCreateInfo.poolSizeCount = static_cast<uint32_t>( poolSizes.size() );
-		poolCreateInfo.pPoolSizes	 = poolSizes.data();
-		poolCreateInfo.maxSets		 = static_cast<uint32_t>( m_swapchainImages.size() );
-		poolCreateInfo.flags		 = 0;
+		// Add a combined image sampler descriptor size
+		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
+
+		// Add a combined image sampler descriptor size
+		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
 		// Create the descriptor pool
-		if ( vkCreateDescriptorPool( m_logicalDevice, &poolCreateInfo, nullptr, &m_descriptorPool ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to create descriptor pool" );
+		m_descriptorPool.CreatePool( m_logicalDevice, static_cast<uint32_t>( m_swapchainImages.size() ), 0 );
 	}
 
 	void CreateDescriptorSets()
 	{
 		// Create a vector of of descriptor set layouts and fill with m_descriptorSetLayout
-		std::vector<VkDescriptorSetLayout> layouts( m_swapchainImages.size(), m_descriptorSetLayout );
+		std::vector<VkDescriptorSetLayout> layouts( m_swapchainImages.size(), m_descriptorSetLayout.GetLayout() );
 
 		// Setup the allocation information for the descriptor sets
 		VkDescriptorSetAllocateInfo descriptorSetAllocInfo {};
 		descriptorSetAllocInfo.sType			  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		descriptorSetAllocInfo.descriptorPool	  = m_descriptorPool;
+		descriptorSetAllocInfo.descriptorPool	  = m_descriptorPool.GetPool();
 		descriptorSetAllocInfo.descriptorSetCount = static_cast<uint32_t>( m_swapchainImages.size() );
 		descriptorSetAllocInfo.pSetLayouts		  = layouts.data();
 
 		// Resize the descriptor set vector
 		m_descriptorSets.resize( m_swapchainImages.size() );
 
-		// Create the descriptor sets
+		// Allocate the descriptor sets
 		if ( vkAllocateDescriptorSets( m_logicalDevice, &descriptorSetAllocInfo, m_descriptorSets.data() ) != VK_SUCCESS )
 			throw std::runtime_error( "Failed to allocate descriptor sets" );
+
+		// m_descriptorSets.InitSets( m_logicalDevice, static_cast<uint32_t>( m_swapchainImages.size() ), m_descriptorSetLayout.GetLayout(), m_descriptorPool.GetPool() );
 
 		// Populate the descriptor sets
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
@@ -991,7 +977,7 @@ private:
 			imageInfo.sampler	  = m_models[0].GetTexture().GetSampler();
 
 			// Create an array of the write descriptor sets
-			std::array<VkWriteDescriptorSet, 2> descriptorsWrites {};
+			std::array<VkWriteDescriptorSet, 3> descriptorsWrites {};
 
 			// Configure the uniform buffer write descriptor set
 			descriptorsWrites[0].sType			  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1004,6 +990,8 @@ private:
 			descriptorsWrites[0].pImageInfo		  = nullptr;
 			descriptorsWrites[0].pTexelBufferView = nullptr;
 
+			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufferInfo, nullptr, nullptr );
+
 			// Configure the sampler write descriptor set
 			descriptorsWrites[1].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorsWrites[1].dstSet			 = m_descriptorSets[i];
@@ -1013,8 +1001,29 @@ private:
 			descriptorsWrites[1].descriptorCount = 1;
 			descriptorsWrites[1].pImageInfo		 = &imageInfo;
 
+			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo, nullptr );
+
+			// Configure the descriptors using image information
+			VkDescriptorImageInfo imageInfo2 {};
+			imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo2.imageView   = m_randomTexture.GetImageView();
+			imageInfo2.sampler	   = m_randomTexture.GetSampler();
+
+			// Configure the sampler write descriptor set
+			descriptorsWrites[2].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorsWrites[2].dstSet			 = m_descriptorSets[i];
+			descriptorsWrites[2].dstBinding		 = 2;
+			descriptorsWrites[2].dstArrayElement = 0;
+			descriptorsWrites[2].descriptorType	 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorsWrites[2].descriptorCount = 1;
+			descriptorsWrites[2].pImageInfo		 = &imageInfo2;
+
+			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo2, nullptr );
+
 			// Update the descriptor sets
 			vkUpdateDescriptorSets( m_logicalDevice, static_cast<uint32_t>( descriptorsWrites.size() ), descriptorsWrites.data(), 0, nullptr );
+
+			// m_descriptorSets.UpdateSet( i );
 		}
 	}
 
@@ -1028,7 +1037,11 @@ private:
 					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
-		// model.TransitionTextureLayout( m_commandPool, m_graphicsQueue, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+		model.SetVerticesAndIndices( cubeVertices, cubeIndices );
+
+		m_randomTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, "resources/textures/viking_room.png", VK_SAMPLE_COUNT_1_BIT,
+							  VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+							  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
 		// Add to the models vector
 		m_models.push_back( model );
@@ -1251,7 +1264,7 @@ private:
 		}
 
 		// Destroy the descriptor pool
-		vkDestroyDescriptorPool( m_logicalDevice, m_descriptorPool, nullptr );
+		m_descriptorPool.Cleanup();
 	}
 
 	void Cleanup()
@@ -1269,8 +1282,11 @@ private:
 			// model.reset();
 		}
 
+		// Destroy the random texture
+		m_randomTexture.Cleanup();
+
 		// Destroy the descriptor set layout
-		vkDestroyDescriptorSetLayout( m_logicalDevice, m_descriptorSetLayout, nullptr );
+		m_descriptorSetLayout.Cleanup();
 
 		// Destroy the vertex buffer and free its memory
 		vkDestroyBuffer( m_logicalDevice, m_vertexBuffer, nullptr );
