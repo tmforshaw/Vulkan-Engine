@@ -4,7 +4,6 @@
 #include "Keyboard.hpp"
 
 #include <GLFW/glfw3.h>
-#include <set>
 
 // Mouse variables
 static float prevMouseX = WINDOW_WIDTH / 2, prevMouseY = WINDOW_HEIGHT / 2;
