@@ -5,16 +5,19 @@
 #include "Descriptors/DescriptorPool.hpp"
 #include "Descriptors/DescriptorSetCollection.hpp"
 #include "Descriptors/DescriptorSetLayout.hpp"
+#include "Graphics/Camera.hpp"
 #include "Graphics/Images.hpp"
 #include "Graphics/Models.hpp"
 #include "Graphics/Multisampling.hpp"
 #include "Graphics/Shaders.hpp"
 #include "Graphics/Textures.hpp"
+#include "Input/Callbacks.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
 #include "VulkanUtil/DeviceAndExtensions.hpp"
 #include "VulkanUtil/ImageView.hpp"
 #include "VulkanUtil/QueueFamilies.hpp"
 #include "VulkanUtil/Swapchain.hpp"
+#include "VulkanUtil/Window.hpp"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES // Ensure the data is correctly aligned
@@ -27,16 +30,14 @@
 #include <stdexcept>
 #include <vector>
 
-// Constants
-const uint16_t WINDOW_WIDTH	 = 1920;
-const uint16_t WINDOW_HEIGHT = 1080;
-const char*	   WINDOW_TITLE	 = "Waguan-o-tron 5000";
-
 const std::string MODEL_PATH   = "resources/models/viking_room.obj";
 const std::string TEXTURE_PATH = "resources/textures/Kitten.jpeg";
 
-#define MAX_FRAMES_IN_FLIGHT 2	   // Maximum number of frames to process concurrently
-#define FOV					 45.0f // The camera field of view
+#define MAX_FRAMES_IN_FLIGHT 2 // Maximum number of frames to process concurrently
+
+// Timing variables
+static float deltaT	   = 0.0f; // Time between current frame and last frame
+static float lastFrame = 0.0f; // Time of last frame
 
 class Application
 {
@@ -82,6 +83,7 @@ private:
 	Image						 m_depthImage;
 	Image						 m_colourImage;
 	VkSampleCountFlagBits		 m_msaaSampleCount;
+	Camera						 m_camera;
 
 	Texture m_randomTexture;
 
@@ -162,6 +164,9 @@ private:
 
 		// Create the semaphores and fences
 		CreateSyncObjects();
+
+		// Initialise the camera
+		m_camera.Init( { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, m_swapchainExtent.width / (float)m_swapchainExtent.height );
 	}
 
 	void InitWindow()
@@ -173,7 +178,7 @@ private:
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
 
 		// Set the window variable
-		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr );
+		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, glfwGetPrimaryMonitor(), nullptr );
 
 		// State that the window hasn't been resized yet
 		m_framebufferResized = false;
@@ -181,8 +186,15 @@ private:
 		// Get the window to point to this application
 		glfwSetWindowUserPointer( m_window, this );
 
-		// Create a window resize callback
-		glfwSetFramebufferSizeCallback( m_window, FramebufferResizeCallback );
+		// Hide the cursor and capture it into the window
+		glfwSetInputMode( m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
+
+		// Callbacks
+
+		glfwSetFramebufferSizeCallback( m_window, FramebufferResizeCallback ); // Create a window resize callback
+		glfwSetKeyCallback( m_window, KeyboardCallback );					   // Create a keyboard callback
+		glfwSetCursorPosCallback( m_window, MouseCallback );				   // Create a mouse callback
+		glfwSetScrollCallback( m_window, ScrollCallback );					   // Create a scrolling callback
 	}
 
 	void InitDebugMessenger()
@@ -1186,23 +1198,20 @@ private:
 
 	void UpdateUniformBuffer( const uint32_t& currentImage )
 	{
-		// Set the current time at the start of the function
-		static auto startTime = std::chrono::high_resolution_clock::now();
+		// std::cout << ( 1 / deltaT ) << std::endl;
 
-		// Set the current time at the end of the function
-		auto currentTime = std::chrono::high_resolution_clock::now();
+		// std::stringstream ss;
+		// ss << WINDOW_TITLE << '\t' << 1 / deltaT << "FPS";
 
-		// Get the elapsed time
-		float time = std::chrono::duration<float, std::chrono::seconds::period>( currentTime - startTime ).count();
+		// glfwSetWindowTitle( m_window, ss.str().c_str() );
 
-		// Set the uniform buffer object
-		UniformBufferObject ubo {};
-		ubo.model = glm::rotate( glm::mat4( 1.0f ), time * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-		ubo.view  = glm::lookAt( glm::vec3( 2.0f, 2.0f, 2.0f ), glm::vec3( 0.0f, 0.0f, 0.0f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
-		ubo.proj  = glm::perspective( glm::radians( FOV ), m_swapchainExtent.width / (float)m_swapchainExtent.height, 0.1f, 10.0f );
+		// Process the inputs
+		ProcessCallbacks( &m_camera );
+		KeyboardHandler::ProcessInput( m_window, &m_camera, deltaT );
 
-		// Flip the y axis of the projection matrix
-		ubo.proj[1][1] *= -1;
+		UniformBufferObject ubo = m_camera.GetMVP();
+
+		ubo.model = glm::rotate( glm::mat4( 1.0f ), deltaT * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
 		// Copy the data into the uniform buffer
 		void* mappedMemPtr;
@@ -1215,6 +1224,11 @@ private:
 	{
 		while ( !glfwWindowShouldClose( m_window ) ) // Loop until the window is supposed to close
 		{
+			// Process time
+			float currentFrame = glfwGetTime();			   // Time now
+			deltaT			   = currentFrame - lastFrame; // Time since last frame
+			lastFrame		   = currentFrame;
+
 			glfwPollEvents(); // Check for events and then call the correct callback
 
 			// Draw the frame
