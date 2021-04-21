@@ -41,19 +41,19 @@ public:
 		m_layout.CreateLayout( *m_logicalDevice );
 	}
 
-	void InitPool()
-	{
-		// Initialise the descriptor pool
-		m_pool.Init( *m_logicalDevice );
-	}
-
-	void AddPoolSize( const VkDescriptorType& p_type )
-	{
-		m_pool.AddSize( p_type, m_size );
-	}
-
 	void CreatePool( const VkDescriptorPoolCreateFlags& p_flags )
 	{
+		// Get the bindings from the layout
+		std::vector<VkDescriptorSetLayoutBinding> bindings = m_layout.GetBindings();
+
+		// Initialise the descriptor pool
+		m_pool.Init( *m_logicalDevice );
+
+		// Add all of the correct sizes to the pool
+		for ( const auto& binding : bindings )
+			m_pool.AddSize( binding.descriptorType, m_size );
+
+		// Create the descriptor pool
 		m_pool.CreatePool( m_size, p_flags );
 	}
 

@@ -961,18 +961,6 @@ private:
 
 	void CreateDescriptorPool()
 	{
-		// Initialise the descriptor pool
-		m_descriptorCollection.InitPool();
-
-		// Add a uniform buffer descriptor size
-		m_descriptorCollection.AddPoolSize( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
-
-		// Add a combined image sampler descriptor size
-		m_descriptorCollection.AddPoolSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-
-		// // Add a combined image sampler descriptor size
-		// m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
-
 		// Create the descriptor pool
 		m_descriptorCollection.CreatePool( 0 );
 	}

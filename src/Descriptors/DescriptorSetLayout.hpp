@@ -46,7 +46,9 @@ public:
 			throw std::runtime_error( "Failed to create descriptor set layout" );
 	}
 
-	inline const VkDescriptorSetLayout& GetLayout() const { return m_layout; }
+	inline const VkDescriptorSetLayout&						GetLayout() const { return m_layout; }
+	inline const std::vector<VkDescriptorSetLayoutBinding>& GetBindings() const { return m_bindings; }
+	inline const VkDescriptorSetLayoutBinding&				GetBinding( const uint32_t& p_index ) const { return m_bindings[p_index]; }
 
 	void Cleanup()
 	{
