@@ -3,6 +3,7 @@
 #include "../Buffers/UniformBuffers.hpp"
 
 // Default values
+#define MOVE_SPEED_SLOW 1.0f
 #define MOVE_SPEED		10.0f
 #define MOVE_SPEED_FAST 25.0f
 #define MOUSE_SENS		0.005f
@@ -42,11 +43,13 @@ public:
 	// Properties
 	float m_moveSpeed;
 	float m_moveSpeedFast;
+	float m_moveSpeedSlow;
 	float m_mouseSensitivity;
 	float m_zoomSensitivity;
 	float m_fov;
 
 	bool m_movingFast;
+	bool m_movingSlow;
 
 	void Init( const glm::vec3& p_position, const glm::vec3& p_target, const float& p_aspectRatio )
 	{
@@ -54,10 +57,13 @@ public:
 		m_position		   = p_position;
 		m_moveSpeed		   = MOVE_SPEED;
 		m_moveSpeedFast	   = MOVE_SPEED_FAST;
+		m_moveSpeedSlow	   = MOVE_SPEED_SLOW;
 		m_mouseSensitivity = MOUSE_SENS;
 		m_zoomSensitivity  = ZOOM_SENS;
 		m_fov			   = FOV_DEFAULT;
 		m_worldUp		   = glm::vec3( 0.0f, 0.0f, 1.0f );
+		m_movingFast	   = false;
+		m_movingSlow	   = false;
 
 		// Set the MVP matrix
 		m_MVP.model = glm::mat4( 1.0f );
@@ -74,7 +80,7 @@ public:
 	void ProcessKeyboard( const CameraMovement& dir, const float& deltaT )
 	{
 		// Define the velocity the camera is moving at
-		float velocity = ( m_movingFast ? m_moveSpeedFast : m_moveSpeed ) * deltaT;
+		float velocity = ( m_movingFast ? m_moveSpeedFast : ( m_movingSlow ? m_moveSpeedSlow : m_moveSpeed ) ) * deltaT;
 
 		// Move in the correct direction based upon the input direction
 		switch ( dir )

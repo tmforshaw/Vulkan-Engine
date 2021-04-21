@@ -116,6 +116,18 @@ public:
 	inline const std::vector<Vertex>&		   GetVertices() const { return m_vertices; }
 	inline const std::vector<IndexBufferType>& GetIndices() const { return m_indices; }
 
+	inline const std::vector<IndexBufferType> GetAdjustedIndices( const IndexBufferType& offset ) const
+	{
+		// Define a vector of indices to alter
+		std::vector<IndexBufferType> adjustedIndices( m_indices.size() );
+
+		// Add the offset to the indices
+		for ( uint16_t i = 0; i < m_indices.size(); i++ )
+			adjustedIndices[i] = m_indices[i] + offset;
+
+		return adjustedIndices;
+	}
+
 	inline const Texture& GetTexture() const { return m_texture; }
 
 	inline void Cleanup()

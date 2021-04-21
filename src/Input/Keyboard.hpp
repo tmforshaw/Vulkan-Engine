@@ -94,6 +94,15 @@ public:
 		else if ( p_camera->m_movingFast ) // Check if it's marked as moving fast but key isn't pressed
 			p_camera->m_movingFast = false;
 
+		// When the alt key is down make the camera move slower
+		if ( m_keyMap[Key[(char)GLFW_KEY_LEFT_ALT]] )
+		{
+			if ( !p_camera->m_movingSlow ) // Check if it's not already marked as moving slow
+				p_camera->m_movingSlow = true;
+		}
+		else if ( p_camera->m_movingSlow ) // Check if it's marked as moving slow but key isn't pressed
+			p_camera->m_movingSlow = false;
+
 		// Camera movement
 		if ( m_keyMap[Key[(char)GLFW_KEY_W]] )
 			p_camera->ProcessKeyboard( CameraMovement::FORWARD, deltaT );

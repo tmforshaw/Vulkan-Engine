@@ -30,7 +30,7 @@
 #include <vector>
 
 const std::string MODEL_PATH   = "resources/models/viking_room.obj";
-const std::string TEXTURE_PATH = "resources/textures/Kitten.jpeg";
+const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
 
 #define MAX_FRAMES_IN_FLIGHT 2 // Maximum number of frames to process concurrently
 
@@ -84,7 +84,7 @@ private:
 	VkSampleCountFlagBits		 m_msaaSampleCount;
 	Camera						 m_camera;
 
-	Texture m_randomTexture;
+	// Texture m_randomTexture;
 
 	bool m_framebufferResized;
 
@@ -890,8 +890,18 @@ private:
 
 	void CreateVertexBuffer()
 	{
-		// Get the vertices from the model
-		std::vector<Vertex> vertices = m_models[0].GetVertices();
+		// Define a vertices vector
+		std::vector<Vertex> vertices;
+
+		// Add the vertices from all the models
+		for ( const auto& model : m_models )
+		{
+			// Create a vector of the model's vertices
+			std::vector<Vertex> modelVertices = model.GetVertices();
+
+			// Add it to the end of the vertices vector
+			vertices.insert( vertices.end(), modelVertices.begin(), modelVertices.end() );
+		}
 
 		// Create a vertex buffer using a staging buffer
 		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
@@ -900,8 +910,24 @@ private:
 
 	void CreateIndexBuffer()
 	{
-		// Get the indices from the model
-		std::vector<IndexBufferType> indices = m_models[0].GetIndices();
+		// Define a indices vector
+		std::vector<IndexBufferType> indices;
+
+		// Create an offset for the indices;
+		IndexBufferType offset = 0;
+
+		// Add the indices from all the models
+		for ( const auto& model : m_models )
+		{
+			// Create a vector of the model's indices
+			std::vector<IndexBufferType> modelIndices = model.GetAdjustedIndices( offset );
+
+			// Increment the offset
+			offset += modelIndices.size();
+
+			// Add it to the end of the indices vector
+			indices.insert( indices.end(), modelIndices.begin(), modelIndices.end() );
+		}
 
 		// Create an index buffer using a staging buffer
 		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
@@ -916,8 +942,8 @@ private:
 		// Setup the descriptor set layout binding
 		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
-		// Setup the descriptor set layout binding 2
-		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+		// // Setup the descriptor set layout binding 2
+		// m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// Create the descriptor set layout
 		m_descriptorSetLayout.CreateLayout( m_logicalDevice );
@@ -937,17 +963,20 @@ private:
 
 	void CreateDescriptorPool()
 	{
+		// Initialise the descriptor pool
+		m_descriptorPool.Init( m_logicalDevice );
+
 		// Add a uniform buffer descriptor size
 		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
 		// Add a combined image sampler descriptor size
 		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
-		// Add a combined image sampler descriptor size
-		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
+		// // Add a combined image sampler descriptor size
+		// m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
 		// Create the descriptor pool
-		m_descriptorPool.CreatePool( m_logicalDevice, static_cast<uint32_t>( m_swapchainImages.size() ), 0 );
+		m_descriptorPool.CreatePool( static_cast<uint32_t>( m_swapchainImages.size() ), 0 );
 	}
 
 	void CreateDescriptorSets()
@@ -974,20 +1003,17 @@ private:
 		// Populate the descriptor sets
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
 		{
+			// Create an array of the write descriptor sets
+			std::vector<VkWriteDescriptorSet> descriptorsWrites {};
+
 			// Configure the descriptors using buffer information
 			VkDescriptorBufferInfo bufferInfo {};
 			bufferInfo.buffer = m_uniformBuffers[i];
 			bufferInfo.offset = 0;
 			bufferInfo.range  = sizeof( UniformBufferObject );
 
-			// Configure the descriptors using image information
-			VkDescriptorImageInfo imageInfo {};
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView	  = m_models[0].GetTexture().GetImageView();
-			imageInfo.sampler	  = m_models[0].GetTexture().GetSampler();
-
-			// Create an array of the write descriptor sets
-			std::array<VkWriteDescriptorSet, 3> descriptorsWrites {};
+			// Resize the descriptor writes vector
+			descriptorsWrites.resize( descriptorsWrites.size() + 1 );
 
 			// Configure the uniform buffer write descriptor set
 			descriptorsWrites[0].sType			  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -999,6 +1025,15 @@ private:
 			descriptorsWrites[0].pBufferInfo	  = &bufferInfo;
 			descriptorsWrites[0].pImageInfo		  = nullptr;
 			descriptorsWrites[0].pTexelBufferView = nullptr;
+
+			// Configure the descriptors using image information
+			VkDescriptorImageInfo imageInfo {};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView	  = m_models[0].GetTexture().GetImageView();
+			imageInfo.sampler	  = m_models[0].GetTexture().GetSampler();
+
+			// Resize the descriptor writes vector
+			descriptorsWrites.resize( descriptorsWrites.size() + 1 );
 
 			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufferInfo, nullptr, nullptr );
 
@@ -1013,20 +1048,20 @@ private:
 
 			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo, nullptr );
 
-			// Configure the descriptors using image information
-			VkDescriptorImageInfo imageInfo2 {};
-			imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo2.imageView   = m_randomTexture.GetImageView();
-			imageInfo2.sampler	   = m_randomTexture.GetSampler();
+			// // Configure the descriptors using image information
+			// VkDescriptorImageInfo imageInfo2 {};
+			// imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			// imageInfo2.imageView   = m_randomTexture.GetImageView();
+			// imageInfo2.sampler	   = m_randomTexture.GetSampler();
 
-			// Configure the sampler write descriptor set
-			descriptorsWrites[2].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorsWrites[2].dstSet			 = m_descriptorSets[i];
-			descriptorsWrites[2].dstBinding		 = 2;
-			descriptorsWrites[2].dstArrayElement = 0;
-			descriptorsWrites[2].descriptorType	 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorsWrites[2].descriptorCount = 1;
-			descriptorsWrites[2].pImageInfo		 = &imageInfo2;
+			// // Configure the sampler write descriptor set
+			// descriptorsWrites[2].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			// descriptorsWrites[2].dstSet			 = m_descriptorSets[i];
+			// descriptorsWrites[2].dstBinding		 = 2;
+			// descriptorsWrites[2].dstArrayElement = 0;
+			// descriptorsWrites[2].descriptorType	 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			// descriptorsWrites[2].descriptorCount = 1;
+			// descriptorsWrites[2].pImageInfo		 = &imageInfo2;
 
 			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo2, nullptr );
 
@@ -1047,11 +1082,11 @@ private:
 					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
-		model.SetVerticesAndIndices( cubeVertices, cubeIndices );
+		// model.SetVerticesAndIndices( cubeVertices, cubeIndices );
 
-		m_randomTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, "resources/textures/viking_room.png", VK_SAMPLE_COUNT_1_BIT,
-							  VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-							  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
+		// m_randomTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, "resources/textures/viking_room.png", VK_SAMPLE_COUNT_1_BIT,
+		// 					  VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		// 					  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
 		// Add to the models vector
 		m_models.push_back( model );
@@ -1294,8 +1329,8 @@ private:
 			// model.reset();
 		}
 
-		// Destroy the random texture
-		m_randomTexture.Cleanup();
+		// // Destroy the random texture
+		// m_randomTexture.Cleanup();
 
 		// Destroy the descriptor set layout
 		m_descriptorSetLayout.Cleanup();
