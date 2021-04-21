@@ -2,8 +2,8 @@
 #include "Buffers/Buffers.hpp"
 #include "Buffers/UniformBuffers.hpp"
 #include "Buffers/Vertex.hpp"
+#include "Descriptors/DescriptorCollection.hpp"
 #include "Descriptors/DescriptorPool.hpp"
-#include "Descriptors/DescriptorSetCollection.hpp"
 #include "Descriptors/DescriptorSetLayout.hpp"
 #include "Graphics/Camera.hpp"
 #include "Graphics/Images.hpp"
@@ -41,27 +41,22 @@ static float lastFrame = 0.0f; // Time of last frame
 class Application
 {
 private:
-	GLFWwindow*				   m_window;
-	VkInstance				   m_instance;
-	VkDebugUtilsMessengerEXT   m_debugMessenger;
-	VkPhysicalDevice		   m_physicalDevice;
-	VkPhysicalDeviceProperties m_physicalDeviceProperties;
-	VkDevice				   m_logicalDevice;
-	VkQueue					   m_graphicsQueue;
-	VkQueue					   m_presentQueue;
-	VkSurfaceKHR			   m_surface;
-	VkSwapchainKHR			   m_swapchain;
-	std::vector<VkImage>	   m_swapchainImages;
-	VkFormat				   m_swapchainImageFormat;
-	VkExtent2D				   m_swapchainExtent;
-	std::vector<VkImageView>   m_swapchainImageViews;
-	VkRenderPass			   m_renderPass;
-	// VkDescriptorSetLayout	   m_descriptorSetLayout;
-	// VkDescriptorPool			 m_descriptorPool;
-	DescriptorPool		m_descriptorPool;
-	DescriptorSetLayout m_descriptorSetLayout;
-	// DescriptorSetCollection m_descriptorSets;
-	std::vector<VkDescriptorSet> m_descriptorSets;
+	GLFWwindow*					 m_window;
+	VkInstance					 m_instance;
+	VkDebugUtilsMessengerEXT	 m_debugMessenger;
+	VkPhysicalDevice			 m_physicalDevice;
+	VkPhysicalDeviceProperties	 m_physicalDeviceProperties;
+	VkDevice					 m_logicalDevice;
+	VkQueue						 m_graphicsQueue;
+	VkQueue						 m_presentQueue;
+	VkSurfaceKHR				 m_surface;
+	VkSwapchainKHR				 m_swapchain;
+	std::vector<VkImage>		 m_swapchainImages;
+	VkFormat					 m_swapchainImageFormat;
+	VkExtent2D					 m_swapchainExtent;
+	std::vector<VkImageView>	 m_swapchainImageViews;
+	VkRenderPass				 m_renderPass;
+	DescriptorCollection		 m_descriptorCollection;
 	VkPipelineLayout			 m_pipelineLayout;
 	VkPipeline					 m_graphicsPipeline;
 	std::vector<VkFramebuffer>	 m_swapchainFramebuffers;
@@ -708,7 +703,7 @@ private:
 			VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {};
 			pipelineLayoutCreateInfo.sType					= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 			pipelineLayoutCreateInfo.setLayoutCount			= 1;
-			pipelineLayoutCreateInfo.pSetLayouts			= &m_descriptorSetLayout.GetLayout();
+			pipelineLayoutCreateInfo.pSetLayouts			= &m_descriptorCollection.GetLayout();
 			pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
 			pipelineLayoutCreateInfo.pPushConstantRanges	= nullptr;
 
@@ -847,7 +842,7 @@ private:
 			vkCmdBindIndexBuffer( m_commandBuffers[i], m_indexBuffer, 0, INDEX_BUFFER_TYPE );
 
 			// Bind the descriptor sets
-			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[i], 0, nullptr );
+			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, m_descriptorCollection.GetSetRef( i ), 0, nullptr );
 
 			// Record the drawing of the triangle
 			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_models[0].GetIndices().size() ), 1, 0, 0, 0 );
@@ -936,17 +931,20 @@ private:
 
 	void CreateDescriptorSetLayout()
 	{
-		// Setup the descriptor set layout binding for the model view projection matrix
-		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr );
+		// Setup the descriptor collection
+		m_descriptorCollection.Init( m_logicalDevice, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
-		// Setup the descriptor set layout binding
-		m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+		// Setup the descriptor set layout binding for the model view projection matrix
+		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr );
+
+		// Setup the descriptor set layout binding for image
+		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// // Setup the descriptor set layout binding 2
 		// m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// Create the descriptor set layout
-		m_descriptorSetLayout.CreateLayout( m_logicalDevice );
+		m_descriptorCollection.CreateLayout();
 	}
 
 	void CreateUniformBuffers()
@@ -964,111 +962,56 @@ private:
 	void CreateDescriptorPool()
 	{
 		// Initialise the descriptor pool
-		m_descriptorPool.Init( m_logicalDevice );
+		m_descriptorCollection.InitPool();
 
 		// Add a uniform buffer descriptor size
-		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, static_cast<uint32_t>( m_swapchainImages.size() ) );
+		m_descriptorCollection.AddPoolSize( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
 		// Add a combined image sampler descriptor size
-		m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
+		m_descriptorCollection.AddPoolSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
 		// // Add a combined image sampler descriptor size
 		// m_descriptorPool.AddSize( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>( m_swapchainImages.size() ) );
 
 		// Create the descriptor pool
-		m_descriptorPool.CreatePool( static_cast<uint32_t>( m_swapchainImages.size() ), 0 );
+		m_descriptorCollection.CreatePool( 0 );
 	}
 
 	void CreateDescriptorSets()
 	{
-		// Create a vector of of descriptor set layouts and fill with m_descriptorSetLayout
-		std::vector<VkDescriptorSetLayout> layouts( m_swapchainImages.size(), m_descriptorSetLayout.GetLayout() );
+		// // Create a vector of of descriptor set layouts and fill with m_descriptorSetLayout
+		// std::vector<VkDescriptorSetLayout> layouts( m_swapchainImages.size(), m_descriptorSetLayout.GetLayout() );
 
-		// Setup the allocation information for the descriptor sets
-		VkDescriptorSetAllocateInfo descriptorSetAllocInfo {};
-		descriptorSetAllocInfo.sType			  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		descriptorSetAllocInfo.descriptorPool	  = m_descriptorPool.GetPool();
-		descriptorSetAllocInfo.descriptorSetCount = static_cast<uint32_t>( m_swapchainImages.size() );
-		descriptorSetAllocInfo.pSetLayouts		  = layouts.data();
+		// // Setup the allocation information for the descriptor sets
+		// VkDescriptorSetAllocateInfo descriptorSetAllocInfo {};
+		// descriptorSetAllocInfo.sType			  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		// descriptorSetAllocInfo.descriptorPool	  = m_descriptorPool.GetPool();
+		// descriptorSetAllocInfo.descriptorSetCount = static_cast<uint32_t>( m_swapchainImages.size() );
+		// descriptorSetAllocInfo.pSetLayouts		  = layouts.data();
 
-		// Resize the descriptor set vector
-		m_descriptorSets.resize( m_swapchainImages.size() );
+		// // Resize the descriptor set vector
+		// m_descriptorSets.resize( m_swapchainImages.size() );
 
-		// Allocate the descriptor sets
-		if ( vkAllocateDescriptorSets( m_logicalDevice, &descriptorSetAllocInfo, m_descriptorSets.data() ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to allocate descriptor sets" );
+		// // Allocate the descriptor sets
+		// if ( vkAllocateDescriptorSets( m_logicalDevice, &descriptorSetAllocInfo, m_descriptorSets.data() ) != VK_SUCCESS )
+		// 	throw std::runtime_error( "Failed to allocate descriptor sets" );
+
+		// Initialise the descriptor collection
+		m_descriptorCollection.InitSets();
 
 		// m_descriptorSets.InitSets( m_logicalDevice, static_cast<uint32_t>( m_swapchainImages.size() ), m_descriptorSetLayout.GetLayout(), m_descriptorPool.GetPool() );
 
 		// Populate the descriptor sets
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
 		{
-			// Create an array of the write descriptor sets
-			std::vector<VkWriteDescriptorSet> descriptorsWrites {};
+			// Add a uniform buffer descriptor
+			m_descriptorCollection.AddBuffer( m_uniformBuffers[i], 0, sizeof( UniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
-			// Configure the descriptors using buffer information
-			VkDescriptorBufferInfo bufferInfo {};
-			bufferInfo.buffer = m_uniformBuffers[i];
-			bufferInfo.offset = 0;
-			bufferInfo.range  = sizeof( UniformBufferObject );
+			// Add an image descriptor
+			m_descriptorCollection.AddImage( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[0].GetTexture().GetImageView(), m_models[0].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
-			// Resize the descriptor writes vector
-			descriptorsWrites.resize( descriptorsWrites.size() + 1 );
-
-			// Configure the uniform buffer write descriptor set
-			descriptorsWrites[0].sType			  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorsWrites[0].dstSet			  = m_descriptorSets[i];
-			descriptorsWrites[0].dstBinding		  = 0;
-			descriptorsWrites[0].dstArrayElement  = 0;
-			descriptorsWrites[0].descriptorType	  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorsWrites[0].descriptorCount  = 1;
-			descriptorsWrites[0].pBufferInfo	  = &bufferInfo;
-			descriptorsWrites[0].pImageInfo		  = nullptr;
-			descriptorsWrites[0].pTexelBufferView = nullptr;
-
-			// Configure the descriptors using image information
-			VkDescriptorImageInfo imageInfo {};
-			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			imageInfo.imageView	  = m_models[0].GetTexture().GetImageView();
-			imageInfo.sampler	  = m_models[0].GetTexture().GetSampler();
-
-			// Resize the descriptor writes vector
-			descriptorsWrites.resize( descriptorsWrites.size() + 1 );
-
-			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufferInfo, nullptr, nullptr );
-
-			// Configure the sampler write descriptor set
-			descriptorsWrites[1].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorsWrites[1].dstSet			 = m_descriptorSets[i];
-			descriptorsWrites[1].dstBinding		 = 1;
-			descriptorsWrites[1].dstArrayElement = 0;
-			descriptorsWrites[1].descriptorType	 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorsWrites[1].descriptorCount = 1;
-			descriptorsWrites[1].pImageInfo		 = &imageInfo;
-
-			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo, nullptr );
-
-			// // Configure the descriptors using image information
-			// VkDescriptorImageInfo imageInfo2 {};
-			// imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			// imageInfo2.imageView   = m_randomTexture.GetImageView();
-			// imageInfo2.sampler	   = m_randomTexture.GetSampler();
-
-			// // Configure the sampler write descriptor set
-			// descriptorsWrites[2].sType			 = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			// descriptorsWrites[2].dstSet			 = m_descriptorSets[i];
-			// descriptorsWrites[2].dstBinding		 = 2;
-			// descriptorsWrites[2].dstArrayElement = 0;
-			// descriptorsWrites[2].descriptorType	 = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			// descriptorsWrites[2].descriptorCount = 1;
-			// descriptorsWrites[2].pImageInfo		 = &imageInfo2;
-
-			// m_descriptorSets.AddWrite( i, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo2, nullptr );
-
-			// Update the descriptor sets
-			vkUpdateDescriptorSets( m_logicalDevice, static_cast<uint32_t>( descriptorsWrites.size() ), descriptorsWrites.data(), 0, nullptr );
-
-			// m_descriptorSets.UpdateSet( i );
+			// Update the set
+			m_descriptorCollection.UpdateSet( i );
 		}
 	}
 
@@ -1311,7 +1254,7 @@ private:
 		}
 
 		// Destroy the descriptor pool
-		m_descriptorPool.Cleanup();
+		m_descriptorCollection.CleanupPool();
 	}
 
 	void Cleanup()
@@ -1333,7 +1276,7 @@ private:
 		// m_randomTexture.Cleanup();
 
 		// Destroy the descriptor set layout
-		m_descriptorSetLayout.Cleanup();
+		m_descriptorCollection.CleanupLayout();
 
 		// Destroy the vertex buffer and free its memory
 		vkDestroyBuffer( m_logicalDevice, m_vertexBuffer, nullptr );
