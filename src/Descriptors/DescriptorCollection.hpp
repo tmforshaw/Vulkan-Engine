@@ -11,14 +11,13 @@
 class DescriptorCollection
 {
 private:
-	DescriptorSetLayout m_layout;
-	DescriptorPool		m_pool;
-	// std::vector<VkWriteDescriptorSet> m_writes; // Writes for each set (reset after every set)
+	DescriptorSetLayout			 m_layout;
+	DescriptorPool				 m_pool;
 	std::vector<VkDescriptorSet> m_sets;
 	uint32_t					 m_size;
 
-	std::vector<std::tuple<const std::vector<VkDescriptorBufferInfo>, const VkDescriptorType>> m_buffers;
-	std::vector<std::tuple<const VkDescriptorImageInfo, const VkDescriptorType>>			   m_images;
+	std::vector<std::tuple<const std::vector<VkDescriptorBufferInfo>, const VkDescriptorType>> m_bufferTuples;
+	std::vector<std::tuple<const VkDescriptorImageInfo, const VkDescriptorType>>			   m_imageTuples;
 
 	const VkDevice* m_logicalDevice;
 
@@ -75,8 +74,8 @@ public:
 		m_sets.resize( m_size );
 
 		// Clear tuple vectors
-		m_buffers.clear();
-		m_images.clear();
+		m_bufferTuples.clear();
+		m_imageTuples.clear();
 
 		// Allocate the descriptor sets
 		if ( vkAllocateDescriptorSets( *m_logicalDevice, &descriptorSetAllocInfo, m_sets.data() ) != VK_SUCCESS )
@@ -102,7 +101,7 @@ public:
 		}
 
 		// Add buffer information to the vector of buffers
-		m_buffers.push_back( std::make_tuple( bufferInfos, p_type ) );
+		m_bufferTuples.push_back( std::make_tuple( bufferInfos, p_type ) );
 	}
 
 	void AddImageSets( const VkImageLayout& p_imageLayout, const VkImageView& p_imageView, const VkSampler& p_sampler, const VkDescriptorType& p_type )
@@ -114,7 +113,7 @@ public:
 		imageInfo.sampler	  = p_sampler;
 
 		// Add image information to the vector of images
-		m_images.push_back( std::make_tuple( imageInfo, p_type ) );
+		m_imageTuples.push_back( std::make_tuple( imageInfo, p_type ) );
 	}
 
 	void UpdateSets()
@@ -122,6 +121,7 @@ public:
 		// Create a writes vector
 		std::vector<VkWriteDescriptorSet> writes {};
 
+		// Iterate over all sets
 		for ( uint32_t i = 0; i < m_size; i++ )
 		{
 			// Create a new write
@@ -131,7 +131,7 @@ public:
 			writes = {};
 
 			// Add each buffer to the writes
-			for ( const auto& bufferTuple : m_buffers )
+			for ( const auto& bufferTuple : m_bufferTuples )
 			{
 				// Clear newWrite
 				newWrite = {};
@@ -152,7 +152,7 @@ public:
 			}
 
 			// Add each image to the writes
-			for ( const auto& imageTuple : m_images )
+			for ( const auto& imageTuple : m_imageTuples )
 			{
 				// Clear newWrite
 				newWrite = {};
