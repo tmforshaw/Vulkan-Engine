@@ -941,7 +941,7 @@ private:
 		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// // Setup the descriptor set layout binding 2
-		// m_descriptorSetLayout.AddBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+		// m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// Create the descriptor set layout
 		m_descriptorCollection.CreateLayout();
@@ -967,40 +967,17 @@ private:
 
 	void CreateDescriptorSets()
 	{
-		// // Create a vector of of descriptor set layouts and fill with m_descriptorSetLayout
-		// std::vector<VkDescriptorSetLayout> layouts( m_swapchainImages.size(), m_descriptorSetLayout.GetLayout() );
-
-		// // Setup the allocation information for the descriptor sets
-		// VkDescriptorSetAllocateInfo descriptorSetAllocInfo {};
-		// descriptorSetAllocInfo.sType			  = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		// descriptorSetAllocInfo.descriptorPool	  = m_descriptorPool.GetPool();
-		// descriptorSetAllocInfo.descriptorSetCount = static_cast<uint32_t>( m_swapchainImages.size() );
-		// descriptorSetAllocInfo.pSetLayouts		  = layouts.data();
-
-		// // Resize the descriptor set vector
-		// m_descriptorSets.resize( m_swapchainImages.size() );
-
-		// // Allocate the descriptor sets
-		// if ( vkAllocateDescriptorSets( m_logicalDevice, &descriptorSetAllocInfo, m_descriptorSets.data() ) != VK_SUCCESS )
-		// 	throw std::runtime_error( "Failed to allocate descriptor sets" );
-
 		// Initialise the descriptor collection
 		m_descriptorCollection.InitSets();
 
-		// m_descriptorSets.InitSets( m_logicalDevice, static_cast<uint32_t>( m_swapchainImages.size() ), m_descriptorSetLayout.GetLayout(), m_descriptorPool.GetPool() );
+		// Add a uniform buffer descriptor
+		m_descriptorCollection.AddBufferSets( m_uniformBuffers, 0, sizeof( UniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
-		// Populate the descriptor sets
-		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
-		{
-			// Add a uniform buffer descriptor
-			m_descriptorCollection.AddBuffer( m_uniformBuffers[i], 0, sizeof( UniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+		// Add an image descriptor
+		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[0].GetTexture().GetImageView(), m_models[0].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
-			// Add an image descriptor
-			m_descriptorCollection.AddImage( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[0].GetTexture().GetImageView(), m_models[0].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-
-			// Update the set
-			m_descriptorCollection.UpdateSet( i );
-		}
+		// Update the sets
+		m_descriptorCollection.UpdateSets();
 	}
 
 	void CreateEnvironmentModel()
@@ -1013,14 +990,27 @@ private:
 					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
-		// model.SetVerticesAndIndices( cubeVertices, cubeIndices );
-
 		// m_randomTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, "resources/textures/viking_room.png", VK_SAMPLE_COUNT_1_BIT,
 		// 					  VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		// 					  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
+		// model.SetVerticesAndIndices( cubeVertices, cubeIndices );
+
 		// Add to the models vector
 		m_models.push_back( model );
+
+		// // Create a model object
+		// Model model2;
+
+		// // Initialise the model and its texture
+		// model2.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		// 			 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		// 			 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
+
+		// model2.SetVerticesAndIndices( cubeVertices, cubeIndices );
+
+		// // Add to the models vector
+		// m_models.push_back( model2 );
 	}
 
 	void CreateColourResources()

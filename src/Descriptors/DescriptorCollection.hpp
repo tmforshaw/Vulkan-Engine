@@ -5,19 +5,20 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <tuple>
 #include <vector>
 
 class DescriptorCollection
 {
 private:
-	DescriptorSetLayout				  m_layout;
-	DescriptorPool					  m_pool;
-	std::vector<VkWriteDescriptorSet> m_writes; // Writes for each set (reset after every set)
-	std::vector<VkDescriptorSet>	  m_sets;
-	uint32_t						  m_size;
+	DescriptorSetLayout m_layout;
+	DescriptorPool		m_pool;
+	// std::vector<VkWriteDescriptorSet> m_writes; // Writes for each set (reset after every set)
+	std::vector<VkDescriptorSet> m_sets;
+	uint32_t					 m_size;
 
-	std::vector<VkDescriptorBufferInfo> m_bufferInfos; // BufferInfo for each set (reset after every set)
-	std::vector<VkDescriptorImageInfo>	m_imageInfos;  // ImageInfo for each set (reset after every set)
+	std::vector<std::tuple<const std::vector<VkDescriptorBufferInfo>, const VkDescriptorType>> m_buffers;
+	std::vector<std::tuple<const VkDescriptorImageInfo, const VkDescriptorType>>			   m_images;
 
 	const VkDevice* m_logicalDevice;
 
@@ -73,86 +74,107 @@ public:
 		m_sets = {};
 		m_sets.resize( m_size );
 
-		// Clear other vectors
-		m_writes	  = {};
-		m_bufferInfos = {};
-		m_imageInfos  = {};
+		// Clear tuple vectors
+		m_buffers.clear();
+		m_images.clear();
 
 		// Allocate the descriptor sets
 		if ( vkAllocateDescriptorSets( *m_logicalDevice, &descriptorSetAllocInfo, m_sets.data() ) != VK_SUCCESS )
-			throw std::runtime_error( "Failed to allocate descriptor sets" );
+			throw std::runtime_error( "Failed to allocsate descriptor sets" );
 	}
 
-	void AddBuffer( const VkBuffer& p_buffer, const VkDeviceSize& p_offset, const uint32_t& p_size, const VkDescriptorType& p_type )
+	void AddBufferSets( const std::vector<VkBuffer>& p_buffers, const VkDeviceSize& p_offset, const uint32_t& p_bufferSize, const VkDescriptorType& p_type )
 	{
-		// Create a new write
-		VkWriteDescriptorSet newWrite {};
+		// Create a vector of buffer info objects
+		std::vector<VkDescriptorBufferInfo> bufferInfos {};
 
-		// Configure the descriptors using buffer information
-		VkDescriptorBufferInfo bufferInfo {};
-		bufferInfo.buffer = p_buffer;
-		bufferInfo.offset = p_offset;
-		bufferInfo.range  = p_size;
+		// Fill vector with buffer info objects
+		for ( uint32_t i = 0; i < m_size; i++ )
+		{
+			// Configure the descriptors using buffer information
+			VkDescriptorBufferInfo bufferInfo {};
+			bufferInfo.buffer = p_buffers[i];
+			bufferInfo.offset = p_offset;
+			bufferInfo.range  = p_bufferSize;
 
-		// Add the buffer info to the vector
-		m_bufferInfos.push_back( bufferInfo );
+			// Add to buffer infos vector
+			bufferInfos.push_back( bufferInfo );
+		}
 
-		// Configure the uniform buffer write descriptor set
-		newWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		// newWrite.dstSet			  = m_sets[i];								// Leave undefined
-		newWrite.dstBinding		  = static_cast<uint32_t>( m_writes.size() ); // The index of this write
-		newWrite.dstArrayElement  = 0;
-		newWrite.descriptorType	  = p_type;
-		newWrite.descriptorCount  = 1;
-		newWrite.pBufferInfo	  = &m_bufferInfos[m_bufferInfos.size() - 1];
-		newWrite.pImageInfo		  = nullptr;
-		newWrite.pTexelBufferView = nullptr;
-
-		// Add to the writes array
-		m_writes.push_back( newWrite );
+		// Add buffer information to the vector of buffers
+		m_buffers.push_back( std::make_tuple( bufferInfos, p_type ) );
 	}
 
-	void AddImage( const VkImageLayout& p_imageLayout, const VkImageView& p_imageView, const VkSampler& p_sampler, const VkDescriptorType& p_type )
+	void AddImageSets( const VkImageLayout& p_imageLayout, const VkImageView& p_imageView, const VkSampler& p_sampler, const VkDescriptorType& p_type )
 	{
-		// Create a new write
-		VkWriteDescriptorSet newWrite {};
-
 		// Configure the descriptors using image information
 		VkDescriptorImageInfo imageInfo {};
 		imageInfo.imageLayout = p_imageLayout;
 		imageInfo.imageView	  = p_imageView;
 		imageInfo.sampler	  = p_sampler;
 
-		// Add the image info to the vector
-		m_imageInfos.push_back( imageInfo );
-
-		// Configure the sampler write descriptor set
-		newWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		// newWrite.dstSet			 = m_sets[i];							   // Leave undefined
-		newWrite.dstBinding		  = static_cast<uint32_t>( m_writes.size() ); // The index of this write
-		newWrite.dstArrayElement  = 0;
-		newWrite.descriptorType	  = p_type;
-		newWrite.descriptorCount  = 1;
-		newWrite.pBufferInfo	  = nullptr;
-		newWrite.pImageInfo		  = &m_imageInfos[m_imageInfos.size() - 1];
-		newWrite.pTexelBufferView = nullptr;
-
-		// Add to the writes array
-		m_writes.push_back( newWrite );
+		// Add image information to the vector of images
+		m_images.push_back( std::make_tuple( imageInfo, p_type ) );
 	}
 
-	void UpdateSet( const uint32_t& p_index )
+	void UpdateSets()
 	{
-		for ( auto& write : m_writes ) // Set the dstSet
-			write.dstSet = m_sets[p_index];
+		// Create a writes vector
+		std::vector<VkWriteDescriptorSet> writes {};
 
-		// Update the descriptor sets
-		vkUpdateDescriptorSets( *m_logicalDevice, static_cast<uint32_t>( m_writes.size() ), m_writes.data(), 0, nullptr );
+		for ( uint32_t i = 0; i < m_size; i++ )
+		{
+			// Create a new write
+			VkWriteDescriptorSet newWrite {};
 
-		// Clear the vectors
-		m_writes	  = {};
-		m_bufferInfos = {};
-		m_imageInfos  = {};
+			// Reset writes vector
+			writes = {};
+
+			// Add each buffer to the writes
+			for ( const auto& bufferTuple : m_buffers )
+			{
+				// Clear newWrite
+				newWrite = {};
+
+				// Configure the buffer write descriptor set
+				newWrite.sType			  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				newWrite.dstSet			  = m_sets[i];
+				newWrite.dstBinding		  = static_cast<uint32_t>( writes.size() ); // The index of this write
+				newWrite.dstArrayElement  = 0;
+				newWrite.descriptorType	  = std::get<1>( bufferTuple );
+				newWrite.descriptorCount  = 1;
+				newWrite.pBufferInfo	  = &std::get<0>( bufferTuple )[i];
+				newWrite.pImageInfo		  = nullptr;
+				newWrite.pTexelBufferView = nullptr;
+
+				// Add newWrite to the writes vector
+				writes.push_back( newWrite );
+			}
+
+			// Add each image to the writes
+			for ( const auto& imageTuple : m_images )
+			{
+				// Clear newWrite
+				newWrite = {};
+
+				// Configure the image write descriptor set
+				newWrite.sType			  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				newWrite.dstSet			  = m_sets[i];
+				newWrite.dstBinding		  = static_cast<uint32_t>( writes.size() ); // The index of this write
+				newWrite.dstArrayElement  = 0;
+				newWrite.descriptorType	  = std::get<1>( imageTuple );
+				newWrite.descriptorCount  = 1;
+				newWrite.pBufferInfo	  = nullptr;
+				newWrite.pImageInfo		  = &std::get<0>( imageTuple );
+				newWrite.pTexelBufferView = nullptr;
+
+				// Add newWrite to the writes vector
+				writes.push_back( newWrite );
+			}
+
+			// Update the descriptor sets
+			vkUpdateDescriptorSets( *m_logicalDevice, static_cast<uint32_t>( writes.size() ), writes.data(), 0, nullptr );
+		}
 	}
 
 	inline const std::vector<VkDescriptorSet>& GetSets() const { return m_sets; }
