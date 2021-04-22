@@ -35,8 +35,9 @@ const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
 #define MAX_FRAMES_IN_FLIGHT 2 // Maximum number of frames to process concurrently
 
 // Timing variables
-static float deltaT	   = 0.0f; // Time between current frame and last frame
-static float lastFrame = 0.0f; // Time of last frame
+static float deltaT		 = 0.0f; // Time between current frame and last frame
+static float lastFrame	 = 0.0f; // Time of last frame
+static float timeElapsed = 0.0f; // The time elapsed since timing started
 
 class Application
 {
@@ -78,8 +79,6 @@ private:
 	Image						 m_colourImage;
 	VkSampleCountFlagBits		 m_msaaSampleCount;
 	Camera						 m_camera;
-
-	// Texture m_randomTexture;
 
 	bool m_framebufferResized;
 
@@ -134,11 +133,8 @@ private:
 		// Load the environment model
 		CreateEnvironmentModel();
 
-		// Create a vertex buffer
-		CreateVertexBuffer();
-
-		// Create an index buffer
-		CreateIndexBuffer();
+		// Create an index and vertex buffer
+		CreateIndexAndVertexBuffer();
 
 		// Create the uniform buffers
 		CreateUniformBuffers();
@@ -880,28 +876,11 @@ private:
 		}
 	}
 
-	void CreateVertexBuffer()
+	void CreateIndexAndVertexBuffer()
 	{
 		// Define a vertices vector
 		std::vector<Vertex> vertices;
 
-		// Add the vertices from all the models
-		for ( const auto& model : m_models )
-		{
-			// Create a vector of the model's vertices
-			std::vector<Vertex> modelVertices = model.GetVertices();
-
-			// Add it to the end of the vertices vector
-			vertices.insert( vertices.end(), modelVertices.begin(), modelVertices.end() );
-		}
-
-		// Create a vertex buffer using a staging buffer
-		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
-									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
-	}
-
-	void CreateIndexBuffer()
-	{
 		// Define a indices vector
 		std::vector<IndexBufferType> indices;
 
@@ -914,12 +893,22 @@ private:
 			// Create a vector of the model's indices
 			std::vector<IndexBufferType> modelIndices = model.GetAdjustedIndices( offset );
 
+			// Create a vector of the model's vertices
+			std::vector<Vertex> modelVertices = model.GetVertices();
+
 			// Increment the offset
-			offset += modelIndices.size();
+			offset += modelVertices.size();
+
+			// Add it to the end of the vertices vector
+			vertices.insert( vertices.end(), modelVertices.begin(), modelVertices.end() );
 
 			// Add it to the end of the indices vector
 			indices.insert( indices.end(), modelIndices.begin(), modelIndices.end() );
 		}
+
+		// Create a vertex buffer using a staging buffer
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
+									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
 
 		// Create an index buffer using a staging buffer
 		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
@@ -937,7 +926,7 @@ private:
 		// Setup the descriptor set layout binding for image
 		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
-		// // Setup the descriptor set layout binding 2
+		// // Setup the descriptor set layout binding for image again
 		// m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// Create the descriptor set layout
@@ -970,6 +959,9 @@ private:
 		// Add an image descriptor
 		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[0].GetTexture().GetImageView(), m_models[0].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
+		// // Add an image descriptor again
+		// m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[1].GetTexture().GetImageView(), m_models[1].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
+
 		// Update the sets
 		m_descriptorCollection.UpdateSets();
 	}
@@ -984,10 +976,6 @@ private:
 					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
-		// m_randomTexture.Init( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties, "resources/textures/viking_room.png", VK_SAMPLE_COUNT_1_BIT,
-		// 					  VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		// 					  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
-
 		// model.SetVerticesAndIndices( cubeVertices, cubeIndices );
 
 		// Add to the models vector
@@ -997,7 +985,7 @@ private:
 		// Model model2;
 
 		// // Initialise the model and its texture
-		// model2.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		// model2.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 		// 			 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 		// 			 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
 
@@ -1158,7 +1146,7 @@ private:
 
 		UniformBufferObject ubo = m_camera.GetMVP();
 
-		ubo.model = glm::rotate( glm::mat4( 1.0f ), deltaT * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+		ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
 		// Copy the data into the uniform buffer
 		void* mappedMemPtr;
@@ -1175,6 +1163,9 @@ private:
 			float currentFrame = glfwGetTime();			   // Time now
 			deltaT			   = currentFrame - lastFrame; // Time since last frame
 			lastFrame		   = currentFrame;
+
+			// Increment time elapsed
+			timeElapsed += deltaT;
 
 			glfwPollEvents(); // Check for events and then call the correct callback
 
@@ -1239,9 +1230,6 @@ private:
 			// Cleanup the model resources
 			model.Cleanup();
 		}
-
-		// // Destroy the random texture
-		// m_randomTexture.Cleanup();
 
 		// Destroy the descriptor set layout
 		m_descriptorCollection.CleanupLayout();
