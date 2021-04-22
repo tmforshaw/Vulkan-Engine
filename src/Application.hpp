@@ -143,11 +143,8 @@ private:
 		// Create the uniform buffers
 		CreateUniformBuffers();
 
-		// Create a descriptor pool
-		CreateDescriptorPool();
-
-		// Create the descriptor sets
-		CreateDescriptorSets();
+		// Create the descriptor pool and descriptor sets
+		CreateDescriptorPoolAndSets();
 
 		// Create the command buffers
 		CreateCommandBuffers();
@@ -959,14 +956,11 @@ private:
 			CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &m_uniformBuffers[i], &m_uniformBuffersMemory[i] );
 	}
 
-	void CreateDescriptorPool()
+	void CreateDescriptorPoolAndSets()
 	{
 		// Create the descriptor pool
 		m_descriptorCollection.CreatePool( 0 );
-	}
 
-	void CreateDescriptorSets()
-	{
 		// Initialise the descriptor collection
 		m_descriptorCollection.InitSets();
 
@@ -1065,8 +1059,7 @@ private:
 		CreateDepthResources();
 		CreateFramebuffers();
 		CreateUniformBuffers();
-		CreateDescriptorPool();
-		CreateDescriptorSets();
+		CreateDescriptorPoolAndSets();
 		CreateCommandBuffers();
 	}
 
@@ -1245,9 +1238,6 @@ private:
 		{
 			// Cleanup the model resources
 			model.Cleanup();
-
-			// // Clear the pointer
-			// model.reset();
 		}
 
 		// // Destroy the random texture
