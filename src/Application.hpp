@@ -165,7 +165,7 @@ private:
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
 
 		// Set the window variable
-		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr );
+		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, glfwGetPrimaryMonitor(), nullptr );
 
 		// State that the window hasn't been resized yet
 		m_framebufferResized = false;

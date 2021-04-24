@@ -89,24 +89,24 @@ public:
 		// When escape is pressed, close the window
 		if ( m_keyMap[Key[(char)GLFW_KEY_ESCAPE]] ) glfwSetWindowShouldClose( p_window, true );
 
-		// When F11 was just released, toggle fullscreen
-		if ( m_releasedMap[Key[(char)GLFW_KEY_F11]] )
-		{
-			std::cout << "Fullscreen toggle" << std::endl
-					  << std::endl;
+		// // When F11 was just released, toggle fullscreen
+		// if ( m_releasedMap[Key[(char)GLFW_KEY_F11]] )
+		// {
+		// 	std::cout << "Fullscreen toggle" << std::endl
+		// 			  << std::endl;
 
-			if ( glfwGetWindowMonitor( p_window ) ) // There is a primary window
-				glfwSetWindowMonitor( p_window, nullptr, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0 );
-			else
-			{
-				GLFWmonitor *monitor = glfwGetPrimaryMonitor();
-				if ( monitor )
-				{
-					const GLFWvidmode *mode = glfwGetVideoMode( monitor );
-					glfwSetWindowMonitor( p_window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate );
-				}
-			}
-		}
+		// 	if ( glfwGetWindowMonitor( p_window ) ) // There is a primary window
+		// 		glfwSetWindowMonitor( p_window, nullptr, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0 );
+		// 	else
+		// 	{
+		// 		GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+		// 		if ( monitor )
+		// 		{
+		// 			const GLFWvidmode *mode = glfwGetVideoMode( monitor );
+		// 			glfwSetWindowMonitor( p_window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate );
+		// 		}
+		// 	}
+		// }
 
 		// When the shift key is down make the camera move faster
 		if ( m_keyMap[Key[(char)GLFW_KEY_LEFT_SHIFT]] )
