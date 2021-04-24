@@ -5,7 +5,7 @@ layout( location = 0 ) in vec3 fragPos;
 layout( location = 1 ) in vec3 fragNormal;
 layout( location = 2 ) in vec2 fragTexCoord;
 layout( location = 3 ) in flat uint fragSamplerID;
-layout( location = 4 ) in mat3 fragViewMat;
+layout( location = 4 ) in mat4 fragViewMat;
 
 layout( binding = 2 ) uniform sampler2D texSampler1;
 layout( binding = 3 ) uniform sampler2D texSampler2;
@@ -38,7 +38,7 @@ void main()
 	vec3 ambientColour = ambientStrength * pointLights[0].colour;
 
 	vec3 norm	  = normalize( fragNormal );
-	vec3 lightDir = normalize( fragViewMat * pointLights[0].position - fragPos );
+	vec3 lightDir = normalize( vec3( fragViewMat * vec4( pointLights[0].position, 1.0 ) ) - fragPos );
 
 	float diff			= max( dot( norm, lightDir ), 0.0 ); // Remove negative values
 	vec3  diffuseColour = diff * pointLights[0].colour;

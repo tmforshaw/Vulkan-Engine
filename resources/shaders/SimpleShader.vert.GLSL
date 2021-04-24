@@ -19,7 +19,7 @@ layout( location = 0 ) out vec3 oFragPos;
 layout( location = 1 ) out vec3 oFragNormal;
 layout( location = 2 ) out vec2 oFragTexCoord;
 layout( location = 3 ) out flat uint oFragSamplerID;
-layout( location = 4 ) out mat3 outFragViewMat;
+layout( location = 4 ) out mat4 outFragViewMat;
 
 void main()
 {
@@ -31,5 +31,5 @@ void main()
 	oFragTexCoord  = inTexCoord;
 	oFragNormal	   = inNormal;
 	oFragSamplerID = inSamplerID;
-	outFragViewMat = mat3( ubo.view );
+	outFragViewMat = ubo.view;
 }
