@@ -60,6 +60,8 @@ private:
 	DescriptorCollection		 m_descriptorCollection;
 	VkPipelineLayout			 m_pipelineLayout;
 	VkPipeline					 m_graphicsPipeline;
+	std::vector<char>			 m_vertShaderCode;
+	std::vector<char>			 m_fragShaderCode;
 	std::vector<VkFramebuffer>	 m_swapchainFramebuffers;
 	VkCommandPool				 m_commandPool;
 	std::vector<VkCommandBuffer> m_commandBuffers;
@@ -115,6 +117,9 @@ private:
 
 		// Create the descriptor set layout
 		CreateDescriptorSetLayout();
+
+		// Read from the shader files
+		ReadShaderFiles();
 
 		// Create the graphics pipeline
 		CreateGraphicsPipeline();
@@ -546,21 +551,30 @@ private:
 			throw std::runtime_error( "Failed to create render pass" );
 	}
 
-	void CreateGraphicsPipeline()
+	void ReadShaderFiles()
 	{
 		// Read the shader files
-		auto vertShaderCode = ReadFile( "lib/shaders/SimpleShader.vert.spv" );
-		auto fragShaderCode = ReadFile( "lib/shaders/SimpleShader.frag.spv" );
+		m_vertShaderCode = ReadFile( "lib/shaders/SimpleShader.vert.spv" );
+		m_fragShaderCode = ReadFile( "lib/shaders/SimpleShader.frag.spv" );
 
-		// If they have data
-		if ( !vertShaderCode.empty() && !fragShaderCode.empty() )
+		// If shader files have data
+		if ( !m_vertShaderCode.empty() && !m_fragShaderCode.empty() )
 		{
-			std::cout << "Vertex shader read from file (" << vertShaderCode.size() << " bytes)" << std::endl;
-			std::cout << "Fragment shader read from file (" << fragShaderCode.size() << " bytes)" << std::endl;
+			std::cout << "Vertex shader read from file (" << m_vertShaderCode.size() << " bytes)" << std::endl
+					  << "Fragment shader read from file (" << m_fragShaderCode.size() << " bytes)" << std::endl;
+		}
+		else
+			std::cout << "Could not read shader files" << std::endl;
+	}
 
+	void CreateGraphicsPipeline()
+	{
+		// If shader files have data
+		if ( !m_vertShaderCode.empty() && !m_fragShaderCode.empty() )
+		{
 			// Create the shader modules
-			VkShaderModule vertShaderModule = CreateShaderModule( vertShaderCode, m_logicalDevice );
-			VkShaderModule fragShaderModule = CreateShaderModule( fragShaderCode, m_logicalDevice );
+			VkShaderModule vertShaderModule = CreateShaderModule( m_vertShaderCode, m_logicalDevice );
+			VkShaderModule fragShaderModule = CreateShaderModule( m_fragShaderCode, m_logicalDevice );
 
 			// Set the create info for the vertex shader stage
 			VkPipelineShaderStageCreateInfo vertShaderStageInfo {};
