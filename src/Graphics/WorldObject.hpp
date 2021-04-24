@@ -44,13 +44,13 @@ public:
 	void ApplyModelMatrix()
 	{
 		// Translate, rotate, and scale the vertices
-		m_model.ApplyMatrix( glm::translate( glm::toMat4( m_rotation ) * glm::scale( glm::mat4( 1.0f ), m_scale ), m_position ) );
+		m_model.ApplyMatrix( glm::scale( glm::toMat4( m_rotation ) * glm::translate( glm::mat4( 1.0f ), m_position ), m_scale ) );
 	}
 
 	std::vector<Vertex> GetVerticesAfterModelMatrix() const
 	{
 		// Translate, rotate, and scale the vertices
-		return m_model.GetVerticesAfterMatrix( glm::translate( glm::toMat4( m_rotation ) * glm::scale( glm::mat4( 1.0f ), m_scale ), m_position ) );
+		return m_model.GetVerticesAfterMatrix( glm::scale( glm::toMat4( m_rotation ) * glm::translate( glm::mat4( 1.0f ), m_position ), m_scale ) );
 	}
 
 	inline const Model&		GetModel() const { return m_model; }

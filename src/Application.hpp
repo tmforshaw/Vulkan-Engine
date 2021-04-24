@@ -1202,7 +1202,7 @@ private:
 
 		UniformBufferObject ubo = m_camera.GetMVP();
 
-		// m_objects[0].SetScale( glm::vec3( 15 * sin( timeElapsed ), cos( timeElapsed ), 1.0f ) );
+		m_objects[0].SetScale( glm::vec3( 5 * sin( timeElapsed ), 5 * cos( timeElapsed ), 1.0f ) );
 
 		// ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
