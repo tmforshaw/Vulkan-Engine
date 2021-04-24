@@ -7,6 +7,7 @@
 #include "Descriptors/DescriptorSetLayout.hpp"
 #include "Graphics/Camera.hpp"
 #include "Graphics/Images.hpp"
+#include "Graphics/Light.hpp"
 #include "Graphics/Multisampling.hpp"
 #include "Graphics/Shaders.hpp"
 #include "Graphics/Textures.hpp"
@@ -76,12 +77,16 @@ private:
 	VkBuffer					 m_indexBuffer;
 	VkDeviceMemory				 m_indexBufferMemory;
 	uint32_t					 m_indicesCount;
-	std::vector<VkBuffer>		 m_uniformBuffers;
-	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
+	std::vector<VkBuffer>		 m_vertexUniformBufferObjects;
+	std::vector<VkDeviceMemory>	 m_vertexUniformBufferObjectMemory;
+	std::vector<VkBuffer>		 m_fragmentUniformBufferObjects;
+	std::vector<VkDeviceMemory>	 m_fragmentUniformBufferObjectMemory;
 	Image						 m_depthImage;
 	Image						 m_colourImage;
 	VkSampleCountFlagBits		 m_msaaSampleCount;
 	Camera						 m_camera;
+	std::vector<PointLight>		 m_pointLights;
+	std::vector<DirLight>		 m_dirLights;
 
 	bool m_framebufferResized;
 
@@ -135,6 +140,9 @@ private:
 
 		// Create the framebuffers
 		CreateFramebuffers();
+
+		// Create the scene's lights
+		CreateLights();
 
 		// Load the environment model
 		CreateEnvironmentModel();
@@ -908,7 +916,7 @@ private:
 			std::vector<IndexBufferType> modelIndices = object.GetModel().GetAdjustedIndices( offset );
 
 			// Create a vector of the model's vertices after a matrix transformation
-			std::vector<Vertex> modelVertices = object.GetVerticesAfterModelMatrix();
+			std::vector<Vertex> modelVertices = object.GetVerticesAfterModelMatrix( m_camera.GetMVP().view );
 
 			// Increment the offset
 			offset += modelVertices.size();
@@ -950,7 +958,7 @@ private:
 			std::vector<IndexBufferType> modelIndices = object.GetModel().GetAdjustedIndices( offset );
 
 			// Create a vector of the model's vertices after a matrix transformation
-			std::vector<Vertex> modelVertices = object.GetVerticesAfterModelMatrix();
+			std::vector<Vertex> modelVertices = object.GetVerticesAfterModelMatrix( m_camera.GetMVP().view );
 
 			// Increment the offset
 			offset += modelVertices.size();
@@ -977,8 +985,11 @@ private:
 		// Setup the descriptor set layout binding for the model view projection matrix
 		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr );
 
+		// Setup the descriptor set layout binding for the model view projection matrix
+		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+
 		// Add an image layout binding for all objects
-		for ( uint32_t i = 0; i < 2; i++ ) // Hardcoded value for now
+		for ( uint32_t i = 0; i < 3; i++ ) // Hardcoded value for now
 		{
 			// Setup the descriptor set layout binding for an image
 			m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
@@ -990,14 +1001,27 @@ private:
 
 	void CreateUniformBuffers()
 	{
+		// Vertex UBO
+
 		// Resize the buffer and memory vectors
-		VkDeviceSize bufferSize = sizeof( UniformBufferObject );
-		m_uniformBuffers.resize( m_swapchainImages.size() );
-		m_uniformBuffersMemory.resize( m_swapchainImages.size() );
+		VkDeviceSize bufferSize = sizeof( VertexUniformBufferObject );
+		m_vertexUniformBufferObjects.resize( m_swapchainImages.size() );
+		m_vertexUniformBufferObjectMemory.resize( m_swapchainImages.size() );
 
 		// Create a buffer for each swapchain image
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
-			CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &m_uniformBuffers[i], &m_uniformBuffersMemory[i] );
+			CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &m_vertexUniformBufferObjects[i], &m_vertexUniformBufferObjectMemory[i] );
+
+		// Fragment UBO
+
+		// Resize the buffer and memory vectors
+		bufferSize = sizeof( *m_pointLights.data() );
+		m_fragmentUniformBufferObjects.resize( m_swapchainImages.size() );
+		m_fragmentUniformBufferObjectMemory.resize( m_swapchainImages.size() );
+
+		// Create a buffer for each swapchain image
+		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
+			CreateBuffer( m_logicalDevice, m_physicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &m_fragmentUniformBufferObjects[i], &m_fragmentUniformBufferObjectMemory[i] );
 	}
 
 	void CreateDescriptorPoolAndSets()
@@ -1009,7 +1033,10 @@ private:
 		m_descriptorCollection.InitSets();
 
 		// Add a uniform buffer descriptor
-		m_descriptorCollection.AddBufferSets( m_uniformBuffers, 0, sizeof( UniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+		m_descriptorCollection.AddBufferSets( m_vertexUniformBufferObjects, 0, sizeof( VertexUniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
+
+		// Add a uniform buffer descriptor
+		m_descriptorCollection.AddBufferSets( m_fragmentUniformBufferObjects, 0, sizeof( *m_pointLights.data() ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
 		// Add an image descriptor for all objects
 		for ( uint32_t i = 0; i < m_objects.size(); i++ )
@@ -1038,11 +1065,21 @@ private:
 		m_objects.push_back( object );
 
 		// Initialise the object and its texture
-		object.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		object.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
 
 		// object.GetModelRef().SetVerticesAndIndices( cubeVertices, cubeIndices );
+
+		// Add to the objects vector
+		m_objects.push_back( object );
+
+		// Initialise the object and its texture
+		object.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", m_pointLights[0].GetPos(), { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
+
+		object.GetModelRef().SetVerticesAndIndices( cubeVertices, cubeIndices );
 
 		// Add to the objects vector
 		m_objects.push_back( object );
@@ -1102,6 +1139,12 @@ private:
 		CreateUniformBuffers();
 		CreateDescriptorPoolAndSets();
 		CreateCommandBuffers();
+	}
+
+	void CreateLights()
+	{
+		m_pointLights.resize( 1 );
+		m_pointLights[0] = PointLight( { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f } );
 	}
 
 	void DrawFrame()
@@ -1200,15 +1243,18 @@ private:
 		ProcessCallbacks( &m_camera );
 		KeyboardHandler::ProcessInput( m_window, &m_camera, deltaT );
 
-		UniformBufferObject ubo = m_camera.GetMVP();
-
-		// ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+		VertexUniformBufferObject vertUBO = m_camera.GetMVP();
 
 		// Copy the data into the uniform buffer
 		void* mappedMemPtr;
-		vkMapMemory( m_logicalDevice, m_uniformBuffersMemory[currentImage], 0, sizeof( ubo ), 0, &mappedMemPtr );
-		memcpy( mappedMemPtr, &ubo, sizeof( ubo ) );
-		vkUnmapMemory( m_logicalDevice, m_uniformBuffersMemory[currentImage] );
+		vkMapMemory( m_logicalDevice, m_vertexUniformBufferObjectMemory[currentImage], 0, sizeof( vertUBO ), 0, &mappedMemPtr );
+		memcpy( mappedMemPtr, &vertUBO, sizeof( vertUBO ) );
+		vkUnmapMemory( m_logicalDevice, m_vertexUniformBufferObjectMemory[currentImage] );
+
+		// Copy the data into the uniform buffer
+		vkMapMemory( m_logicalDevice, m_fragmentUniformBufferObjectMemory[currentImage], 0, sizeof( *m_pointLights.data() ), 0, &mappedMemPtr );
+		memcpy( mappedMemPtr, m_pointLights.data(), sizeof( *m_pointLights.data() ) );
+		vkUnmapMemory( m_logicalDevice, m_fragmentUniformBufferObjectMemory[currentImage] );
 	}
 
 	void MainLoop()
@@ -1267,8 +1313,11 @@ private:
 		// Destroy the uniform buffers and free the memory
 		for ( size_t i = 0; i < m_swapchainImages.size(); i++ )
 		{
-			vkDestroyBuffer( m_logicalDevice, m_uniformBuffers[i], nullptr );
-			vkFreeMemory( m_logicalDevice, m_uniformBuffersMemory[i], nullptr );
+			vkDestroyBuffer( m_logicalDevice, m_vertexUniformBufferObjects[i], nullptr );
+			vkFreeMemory( m_logicalDevice, m_vertexUniformBufferObjectMemory[i], nullptr );
+
+			vkDestroyBuffer( m_logicalDevice, m_fragmentUniformBufferObjects[i], nullptr );
+			vkFreeMemory( m_logicalDevice, m_fragmentUniformBufferObjectMemory[i], nullptr );
 		}
 
 		// Destroy the descriptor pool

@@ -9,7 +9,7 @@
 struct Vertex
 {
 	glm::vec3 position;
-	glm::vec3 colour;
+	glm::vec3 normal;
 	glm::vec2 texCoord;
 	uint32_t  samplerID;
 
@@ -32,25 +32,25 @@ struct Vertex
 
 		// Position attribute
 		newDescription.binding	= 0;
-		newDescription.location = 0;
+		newDescription.location = static_cast<uint32_t>( attributeDescriptions.size() );
 		newDescription.format	= VK_FORMAT_R32G32B32_SFLOAT;
 		newDescription.offset	= offsetof( Vertex, position );
 
 		// Add description to vector
 		attributeDescriptions.push_back( newDescription );
 
-		// Colour attribute
+		// Normal attribute
 		newDescription.binding	= 0;
-		newDescription.location = 1;
+		newDescription.location = static_cast<uint32_t>( attributeDescriptions.size() );
 		newDescription.format	= VK_FORMAT_R32G32B32_SFLOAT;
-		newDescription.offset	= offsetof( Vertex, colour );
+		newDescription.offset	= offsetof( Vertex, normal );
 
 		// Add description to vector
 		attributeDescriptions.push_back( newDescription );
 
 		// TexCoord attribute
 		newDescription.binding	= 0;
-		newDescription.location = 2;
+		newDescription.location = static_cast<uint32_t>( attributeDescriptions.size() );
 		newDescription.format	= VK_FORMAT_R32G32_SFLOAT;
 		newDescription.offset	= offsetof( Vertex, texCoord );
 
@@ -59,7 +59,7 @@ struct Vertex
 
 		// SamplerID attribute
 		newDescription.binding	= 0;
-		newDescription.location = 3;
+		newDescription.location = static_cast<uint32_t>( attributeDescriptions.size() );
 		newDescription.format	= VK_FORMAT_R32_UINT;
 		newDescription.offset	= offsetof( Vertex, samplerID );
 
@@ -71,6 +71,6 @@ struct Vertex
 
 	bool operator==( const Vertex& other ) const
 	{
-		return position == other.position && colour == other.colour && texCoord == other.texCoord && samplerID == other.samplerID;
+		return position == other.position && texCoord == other.texCoord && normal == other.normal && samplerID == other.samplerID;
 	}
 };

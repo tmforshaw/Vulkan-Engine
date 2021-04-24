@@ -30,7 +30,7 @@ private:
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;
 
-	UniformBufferObject m_MVP;
+	VertexUniformBufferObject m_MVP;
 
 	// Axis
 	glm::vec3 m_xDirection;
@@ -152,7 +152,7 @@ public:
 		m_yDirection = glm::normalize( glm::cross( m_xDirection, m_zDirection ) );
 	}
 
-	inline const UniformBufferObject& GetMVP()
+	inline const VertexUniformBufferObject& GetMVP()
 	{
 		// Update view matrix
 		m_MVP.view = glm::lookAt( m_position, m_position + m_zDirection, m_worldUp );

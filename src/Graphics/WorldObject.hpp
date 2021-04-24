@@ -41,16 +41,16 @@ public:
 					  p_usage, p_properties, p_aspectFlags, p_samplerID );
 	}
 
-	void ApplyModelMatrix()
+	void ApplyModelMatrix( const glm::mat4& p_viewMat )
 	{
 		// Translate, rotate, and scale the vertices
-		m_model.ApplyMatrix( this->GetModelMatrix() );
+		m_model.ApplyMatrix( this->GetModelMatrix(), this->GetNormalMatrix( p_viewMat ) );
 	}
 
-	std::vector<Vertex> GetVerticesAfterModelMatrix() const
+	std::vector<Vertex> GetVerticesAfterModelMatrix( const glm::mat4& p_viewMat ) const
 	{
 		// Translate, rotate, and scale the vertices
-		return m_model.GetVerticesAfterMatrix( this->GetModelMatrix() );
+		return m_model.GetVerticesAfterMatrix( this->GetModelMatrix(), this->GetNormalMatrix( p_viewMat ) );
 	}
 
 	inline const Model&		GetModel() const { return m_model; }
@@ -70,6 +70,11 @@ public:
 					m_rotation.z, glm::vec3( 0.0f, 1.0f, 0.0f ) ),		 // Rotate Z
 				m_rotation.y, glm::vec3( 0.0f, 0.0f, 1.0f ) ),			 // Rotate Y
 			m_scale );													 // Scale
+	}
+
+	inline const glm::mat3 GetNormalMatrix( const glm::mat4& p_viewMat ) const
+	{
+		return glm::transpose( glm::inverse( p_viewMat * this->GetModelMatrix() ) );
 	}
 
 	inline void SetPos( const glm::vec3& p_position ) { m_position = p_position; }

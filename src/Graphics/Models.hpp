@@ -22,8 +22,8 @@ namespace std
 	{
 		size_t operator()( Vertex const& vertex ) const
 		{
-			return ( ( hash<glm::vec3>()( vertex.position ) ^ ( hash<glm::vec3>()( vertex.colour ) << 1 ) ) >> 1 ) ^
-				   ( hash<glm::vec2>()( vertex.texCoord ) << 1 );
+			return ( ( hash<glm::vec3>()( vertex.position ) ^ ( hash<glm::vec3>()( vertex.normal ) << 1 ) ) >> 1 ) ^
+				   ( ( hash<glm::vec2>()( vertex.texCoord ) ^ ( hash<uint32_t>()( vertex.samplerID ) << 1 ) ) >> 1 );
 		}
 	};
 } // namespace std
@@ -47,6 +47,10 @@ public:
 		if ( !tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &err, path ) )
 			throw std::runtime_error( warn + err );
 
+		// Reset vertices and indices
+		m_vertices = {};
+		m_indices  = {};
+
 		// Combine all of the faces into a single model
 		for ( const auto& shape : shapes )
 		{
@@ -54,22 +58,30 @@ public:
 			{
 				Vertex vertex {};
 
+				// Get position
 				vertex.position = {
 					attrib.vertices[3 * index.vertex_index + 0],
 					attrib.vertices[3 * index.vertex_index + 1],
 					attrib.vertices[3 * index.vertex_index + 2]
 				};
 
-				// Flip vertically
+				// Get the surface normals
+				vertex.normal = {
+					attrib.normals[3 * index.normal_index + 0],
+					-attrib.normals[3 * index.normal_index + 1], // Flip vertically
+					attrib.normals[3 * index.normal_index + 2]
+				};
+
+				// Get texCoords and flip vertically
 				vertex.texCoord = {
 					attrib.texcoords[2 * index.texcoord_index + 0],
 					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
 				};
 
-				vertex.colour = { 1.0f, 1.0f, 1.0f };
-
+				// Get the samplerID
 				vertex.samplerID = m_texture.GetSamplerID();
 
+				// Add to vertices if it is unique
 				if ( uniqueVertices.count( vertex ) == 0 )
 				{
 					uniqueVertices[vertex] = static_cast<IndexBufferType>( m_vertices.size() );
@@ -122,26 +134,33 @@ public:
 		for ( uint32_t i = 0; i < p_vertices.size(); i++ )
 		{
 			m_vertices[i]			= p_vertices[i];
+			m_vertices[i].normal.y	= -m_vertices[i].normal.y; // Flip vertically
 			m_vertices[i].samplerID = m_texture.GetSamplerID();
 		}
 
 		m_indices = p_indices;
 	}
 
-	void ApplyMatrix( const glm::mat4& p_matrix )
+	void ApplyMatrix( const glm::mat4& p_modelMatrix, const glm::mat3& p_normalMatrix )
 	{
 		// Iterate through the vertices and apply the matrix
 		for ( uint32_t i = 0; i < m_vertices.size(); i++ )
-			m_vertices[i].position = glm::vec3( p_matrix * glm::vec4( m_vertices[i].position, 1.0f ) );
+		{
+			m_vertices[i].position = glm::vec3( p_modelMatrix * glm::vec4( m_vertices[i].position, 1.0f ) );
+			m_vertices[i].normal   = glm::vec3( p_normalMatrix * m_vertices[i].normal );
+		}
 	}
 
-	std::vector<Vertex> GetVerticesAfterMatrix( const glm::mat4& p_matrix ) const
+	std::vector<Vertex> GetVerticesAfterMatrix( const glm::mat4& p_modelMatrix, const glm::mat3& p_normalMatrix ) const
 	{
 		std::vector<Vertex> modifiedVertices = m_vertices;
 
 		// Iterate through the modifiedVertices and apply the matrix
 		for ( uint32_t i = 0; i < m_vertices.size(); i++ )
-			modifiedVertices[i].position = glm::vec3( p_matrix * glm::vec4( m_vertices[i].position, 1.0f ) );
+		{
+			modifiedVertices[i].position = glm::vec3( p_modelMatrix * glm::vec4( m_vertices[i].position, 1.0f ) );
+			modifiedVertices[i].normal	 = glm::vec3( p_normalMatrix * m_vertices[i].normal );
+		}
 
 		return modifiedVertices;
 	}
@@ -170,31 +189,85 @@ public:
 };
 
 // clang-format off
+// const std::vector<Vertex> cubeVertices = {
+// 	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f } },
+// 	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f } },
+// 	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
+// 	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f } },
+// 	{ { -0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
+// 	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f } },
+// 	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f } },
+// 	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 1.0f } },
+// 	{ {  0.5f, -0.5f,  0.5f }, { 1.0f, 0.0f } },
+// 	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
+// 	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f } },
+// 	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } },
+// 	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f } },
+// 	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 0.0f } },
+// 	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f } },
+// 	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 1.0f } }
+// };
+
+
 const std::vector<Vertex> cubeVertices = {
-	{ { -0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f, -0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  0.5f, -0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ { -0.5f,  0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f,  0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ {  0.5f,  0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-	{ {  0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } }
+    { { -0.5f, -0.5f, -0.5f }, { 0.0f,  0.0f, -1.0f }, { 0.0f, 1.0f }, },
+    { {  0.5f, -0.5f, -0.5f }, { 0.0f,  0.0f, -1.0f }, { 1.0f, 1.0f }, }, 
+    { {  0.5f,  0.5f, -0.5f }, { 0.0f,  0.0f, -1.0f }, { 1.0f, 0.0f }, }, 
+    { {  0.5f,  0.5f, -0.5f }, { 0.0f,  0.0f, -1.0f }, { 1.0f, 0.0f }, }, 
+    { { -0.5f,  0.5f, -0.5f }, { 0.0f,  0.0f, -1.0f }, { 0.0f, 0.0f }, }, 
+    { { -0.5f, -0.5f, -0.5f }, { 0.0f,  0.0f, -1.0f }, { 0.0f, 1.0f }, }, 
+
+    { { -0.5f, -0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 0.0f, 1.0f } },
+    { {  0.5f, -0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 1.0f, 1.0f } },
+    { {  0.5f,  0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 1.0f, 0.0f } },
+    { {  0.5f,  0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 1.0f, 0.0f } },
+    { { -0.5f,  0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 0.0f, 0.0f } },
+    { { -0.5f, -0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 0.0f, 1.0f } },
+
+    { { -0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
+    { { -0.5f,  0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 1.0f } },
+    { { -0.5f, -0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
+    { { -0.5f, -0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
+    { { -0.5f, -0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 0.0f } },
+    { { -0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
+
+    { {  0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
+    { {  0.5f,  0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 1.0f } },
+    { {  0.5f, -0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
+    { {  0.5f, -0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
+    { {  0.5f, -0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 0.0f } },
+    { {  0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
+
+    { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f,  0.0f }, { 0.0f, 1.0f } },
+    { {  0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f,  0.0f }, { 1.0f, 1.0f } },
+    { {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f,  0.0f }, { 1.0f, 0.0f } },
+    { {  0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f,  0.0f }, { 1.0f, 0.0f } },
+    { { -0.5f, -0.5f,  0.5f }, { 0.0f, -1.0f,  0.0f }, { 0.0f, 0.0f } },
+    { { -0.5f, -0.5f, -0.5f }, { 0.0f, -1.0f,  0.0f }, { 0.0f, 1.0f } },
+
+    { { -0.5f,  0.5f, -0.5f }, { 0.0f,  1.0f,  0.0f }, { 0.0f, 1.0f } },
+    { {  0.5f,  0.5f, -0.5f }, { 0.0f,  1.0f,  0.0f }, { 1.0f, 1.0f } },
+    { {  0.5f,  0.5f,  0.5f }, { 0.0f,  1.0f,  0.0f }, { 1.0f, 0.0f } },
+    { {  0.5f,  0.5f,  0.5f }, { 0.0f,  1.0f,  0.0f }, { 1.0f, 0.0f } },
+    { { -0.5f,  0.5f,  0.5f }, { 0.0f,  1.0f,  0.0f }, { 0.0f, 0.0f } },
+    { { -0.5f,  0.5f, -0.5f }, { 0.0f,  1.0f,  0.0f }, { 0.0f, 1.0f } }
 };
 // clang-format on
 
+// const std::vector<IndexBufferType> cubeIndices = {
+// 	0, 2, 1, 2, 0, 3,	  // Front Face
+// 	4, 5, 6, 6, 7, 4,	  // Back Face
+// 	9, 10, 11, 11, 4, 9,  // Right Face
+// 	13, 15, 2, 15, 13, 8, // Left Face
+// 	11, 14, 5, 5, 4, 11,  // Bottom Face
+// 	3, 13, 2, 13, 3, 12	  // Top Face
+// };
+
 const std::vector<IndexBufferType> cubeIndices = {
-	0, 2, 1, 2, 0, 3,	  // Front Face
-	4, 5, 6, 6, 7, 4,	  // Back Face
-	9, 10, 11, 11, 4, 9,  // Right Face
-	13, 15, 2, 15, 13, 8, // Left Face
-	11, 14, 5, 5, 4, 11,  // Bottom Face
-	3, 13, 2, 13, 3, 12	  // Top Face
+	0, 1, 2, 3, 4, 5,
+	6, 7, 8, 9, 10, 11,
+	12, 13, 14, 15, 16, 17,
+	18, 19, 20, 21, 22, 23,
+	24, 25, 26, 27, 28, 29,
+	30, 31, 32, 33, 34, 35
 };
