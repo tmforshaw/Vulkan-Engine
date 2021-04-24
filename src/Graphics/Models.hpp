@@ -95,6 +95,9 @@ public:
 			   const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
 			   const VkImageAspectFlags& p_aspectFlags, const uint32_t& p_samplerID )
 	{
+		// Reset vertices and indices
+		m_vertices = {};
+		m_indices  = {};
 
 		// Load the texture
 		LoadTexture( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, texturePath, p_sampleCount, p_format, p_tiling, p_usage, p_properties,
@@ -137,8 +140,8 @@ public:
 		std::vector<Vertex> modifiedVertices = m_vertices;
 
 		// Iterate through the modifiedVertices and apply the matrix
-		for ( uint32_t i = 0; i < modifiedVertices.size(); i++ )
-			modifiedVertices[i].position = glm::vec3( p_matrix * glm::vec4( modifiedVertices[i].position, 1.0f ) );
+		for ( uint32_t i = 0; i < m_vertices.size(); i++ )
+			modifiedVertices[i].position = glm::vec3( p_matrix * glm::vec4( m_vertices[i].position, 1.0f ) );
 
 		return modifiedVertices;
 	}

@@ -940,11 +940,12 @@ private:
 		// Setup the descriptor set layout binding for the model view projection matrix
 		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr );
 
-		// Setup the descriptor set layout binding for image
-		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
-
-		// Setup the descriptor set layout binding for image again
-		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+		// Add an image layout binding for all objects
+		for ( uint32_t i = 0; i < 2; i++ ) // Hardcoded value for now
+		{
+			// Setup the descriptor set layout binding for an image
+			m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+		}
 
 		// Create the descriptor set layout
 		m_descriptorCollection.CreateLayout();
@@ -973,11 +974,12 @@ private:
 		// Add a uniform buffer descriptor
 		m_descriptorCollection.AddBufferSets( m_uniformBuffers, 0, sizeof( UniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
-		// Add an image descriptor
-		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_objects[0].GetModel().GetTexture().GetImageView(), m_objects[0].GetModel().GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
-
-		// Add an image descriptor again
-		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_objects[1].GetModel().GetTexture().GetImageView(), m_objects[1].GetModel().GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
+		// Add an image descriptor for all objects
+		for ( uint32_t i = 0; i < m_objects.size(); i++ )
+		{
+			// Add an image descriptor
+			m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_objects[i].GetModel().GetTexture().GetImageView(), m_objects[i].GetModel().GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
+		}
 
 		// Update the sets
 		m_descriptorCollection.UpdateSets();
@@ -1161,6 +1163,8 @@ private:
 		UniformBufferObject ubo = m_camera.GetMVP();
 
 		// m_objects[0].SetScale( glm::vec3( 15 * sin( timeElapsed ), cos( timeElapsed ), 1.0f ) );
+
+		std::cout << m_objects[0].GetScale().x << std::endl;
 
 		// ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
