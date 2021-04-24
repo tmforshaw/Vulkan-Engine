@@ -12,11 +12,11 @@ class WorldObject
 private:
 	Model	  m_model;
 	glm::vec3 m_position;
-	glm::quat m_rotation;
+	glm::vec3 m_rotation;
 	glm::vec3 m_scale;
 
 public:
-	void Init( const char* modelPath, const char* texturePath, const glm::vec3& p_position, const glm::quat& p_rotation, const glm::vec3& p_scale, const VkSampleCountFlagBits& p_sampleCount, const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
+	void Init( const char* modelPath, const char* texturePath, const glm::vec3& p_position, const glm::vec3& p_rotation, const glm::vec3& p_scale, const VkSampleCountFlagBits& p_sampleCount, const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
 			   const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const VkFormat& p_format, const VkImageTiling& p_tiling,
 			   const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
 			   const VkImageAspectFlags& p_aspectFlags, const uint32_t& p_samplerID )
@@ -44,23 +44,36 @@ public:
 	void ApplyModelMatrix()
 	{
 		// Translate, rotate, and scale the vertices
-		m_model.ApplyMatrix( glm::scale( glm::toMat4( m_rotation ) * glm::translate( glm::mat4( 1.0f ), m_position ), m_scale ) );
+		m_model.ApplyMatrix( this->GetModelMatrix() );
 	}
 
 	std::vector<Vertex> GetVerticesAfterModelMatrix() const
 	{
 		// Translate, rotate, and scale the vertices
-		return m_model.GetVerticesAfterMatrix( glm::scale( glm::toMat4( m_rotation ) * glm::translate( glm::mat4( 1.0f ), m_position ), m_scale ) );
+		return m_model.GetVerticesAfterMatrix( this->GetModelMatrix() );
 	}
 
 	inline const Model&		GetModel() const { return m_model; }
 	inline Model&			GetModelRef() { return m_model; }
 	inline const glm::vec3& GetPos() const { return m_position; }
-	inline const glm::quat& GetRot() const { return m_rotation; }
+	inline const glm::vec3& GetRot() const { return m_rotation; }
 	inline const glm::vec3& GetScale() const { return m_scale; }
 
+	inline const glm::mat4 GetModelMatrix() const
+	{
+		return glm::scale(												 // Scale
+			glm::rotate(												 // Rotate X
+				glm::rotate(											 // Rotate Z
+					glm::rotate(										 // Rotate Y
+						glm::translate( glm::mat4( 1.0f ), m_position ), // Translate
+						m_rotation.x, glm::vec3( 1.0f, 0.0f, 0.0f ) ),	 // Rotate X
+					m_rotation.z, glm::vec3( 0.0f, 1.0f, 0.0f ) ),		 // Rotate Z
+				m_rotation.y, glm::vec3( 0.0f, 0.0f, 1.0f ) ),			 // Rotate Y
+			m_scale );													 // Scale
+	}
+
 	inline void SetPos( const glm::vec3& p_position ) { m_position = p_position; }
-	inline void SetRot( const glm::quat& p_rotation ) { m_rotation = p_rotation; }
+	inline void SetRot( const glm::vec3& p_rotation ) { m_rotation = p_rotation; }
 	inline void SetScale( const glm::vec3& p_scale ) { m_scale = p_scale; }
 
 	void Cleanup()

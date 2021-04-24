@@ -1028,7 +1028,7 @@ private:
 		WorldObject object;
 
 		// Initialise the object and its texture
-		object.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", { 0.0f, 2.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		object.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", { 0.0f, 2.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
 
@@ -1038,7 +1038,7 @@ private:
 		m_objects.push_back( object );
 
 		// Initialise the object and its texture
-		object.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		object.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
 
@@ -1201,8 +1201,6 @@ private:
 		KeyboardHandler::ProcessInput( m_window, &m_camera, deltaT );
 
 		UniformBufferObject ubo = m_camera.GetMVP();
-
-		m_objects[0].SetScale( glm::vec3( 5 * sin( timeElapsed ), 5 * cos( timeElapsed ), 1.0f ) );
 
 		// ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
