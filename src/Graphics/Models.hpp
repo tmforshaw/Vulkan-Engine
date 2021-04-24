@@ -125,6 +125,24 @@ public:
 		m_indices = p_indices;
 	}
 
+	void ApplyMatrix( const glm::mat4& p_matrix )
+	{
+		// Iterate through the vertices and apply the matrix
+		for ( uint32_t i = 0; i < m_vertices.size(); i++ )
+			m_vertices[i].position = glm::vec3( p_matrix * glm::vec4( m_vertices[i].position, 1.0f ) );
+	}
+
+	std::vector<Vertex> GetVerticesAfterMatrix( const glm::mat4& p_matrix ) const
+	{
+		std::vector<Vertex> modifiedVertices = m_vertices;
+
+		// Iterate through the modifiedVertices and apply the matrix
+		for ( uint32_t i = 0; i < modifiedVertices.size(); i++ )
+			modifiedVertices[i].position = glm::vec3( p_matrix * glm::vec4( modifiedVertices[i].position, 1.0f ) );
+
+		return modifiedVertices;
+	}
+
 	inline const std::vector<Vertex>&		   GetVertices() const { return m_vertices; }
 	inline const std::vector<IndexBufferType>& GetIndices() const { return m_indices; }
 

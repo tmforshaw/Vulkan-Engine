@@ -7,10 +7,10 @@
 #include "Descriptors/DescriptorSetLayout.hpp"
 #include "Graphics/Camera.hpp"
 #include "Graphics/Images.hpp"
-#include "Graphics/Models.hpp"
 #include "Graphics/Multisampling.hpp"
 #include "Graphics/Shaders.hpp"
 #include "Graphics/Textures.hpp"
+#include "Graphics/WorldObject.hpp"
 #include "Input/Callbacks.hpp"
 #include "VulkanUtil/DebugMessenger.hpp"
 #include "VulkanUtil/DeviceAndExtensions.hpp"
@@ -70,7 +70,7 @@ private:
 	std::vector<VkFence>		 m_inFlightFences;
 	std::vector<VkFence>		 m_inFlightImages;
 	size_t						 m_currentFrame;
-	std::vector<Model>			 m_models;
+	std::vector<WorldObject>	 m_objects;
 	VkBuffer					 m_vertexBuffer;
 	VkDeviceMemory				 m_vertexBufferMemory;
 	VkBuffer					 m_indexBuffer;
@@ -893,22 +893,22 @@ private:
 	void CreateIndexAndVertexBuffer()
 	{
 		// Define a vertices vector
-		std::vector<Vertex> vertices;
+		std::vector<Vertex> vertices {};
 
 		// Define a indices vector
-		std::vector<IndexBufferType> indices;
+		std::vector<IndexBufferType> indices {};
 
 		// Create an offset for the indices;
 		IndexBufferType offset = 0;
 
-		// Add the indices from all the models
-		for ( const auto& model : m_models )
+		// Add the indices from all the object models
+		for ( const auto& object : m_objects )
 		{
 			// Create a vector of the model's indices
-			std::vector<IndexBufferType> modelIndices = model.GetAdjustedIndices( offset );
+			std::vector<IndexBufferType> modelIndices = object.GetModel().GetAdjustedIndices( offset );
 
-			// Create a vector of the model's vertices
-			std::vector<Vertex> modelVertices = model.GetVertices();
+			// Create a vector of the model's vertices after a matrix transformation
+			std::vector<Vertex> modelVertices = object.GetVerticesAfterModelMatrix();
 
 			// Increment the offset
 			offset += modelVertices.size();
@@ -974,10 +974,10 @@ private:
 		m_descriptorCollection.AddBufferSets( m_uniformBuffers, 0, sizeof( UniformBufferObject ), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER );
 
 		// Add an image descriptor
-		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[0].GetTexture().GetImageView(), m_models[0].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
+		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_objects[0].GetModel().GetTexture().GetImageView(), m_objects[0].GetModel().GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
 		// Add an image descriptor again
-		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[1].GetTexture().GetImageView(), m_models[1].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
+		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_objects[1].GetModel().GetTexture().GetImageView(), m_objects[1].GetModel().GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
 		// Update the sets
 		m_descriptorCollection.UpdateSets();
@@ -985,31 +985,28 @@ private:
 
 	void CreateEnvironmentModel()
 	{
-		// Create a model object
-		Model model;
+		// Create a world object
+		WorldObject object;
 
-		// Initialise the model and its texture
-		model.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
-					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_models.size() ) );
-
-		model.SetVerticesAndIndices( cubeVertices, cubeIndices );
-
-		// Add to the models vector
-		m_models.push_back( model );
-
-		// Create a model object
-		Model model2;
-
-		// Initialise the model and its texture
-		model2.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		// Initialise the object and its texture
+		object.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", { 0.0f, 2.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_models.size() ) );
+					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
 
-		// model2.SetVerticesAndIndices( cubeVertices, cubeIndices );
+		object.GetModelRef().SetVerticesAndIndices( cubeVertices, cubeIndices );
 
-		// Add to the models vector
-		m_models.push_back( model2 );
+		// Add to the objects vector
+		m_objects.push_back( object );
+
+		// Initialise the object and its texture
+		object.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
+
+		// object.GetModelRef().SetVerticesAndIndices( cubeVertices, cubeIndices );
+
+		// Add to the objects vector
+		m_objects.push_back( object );
 	}
 
 	void CreateColourResources()
@@ -1163,7 +1160,9 @@ private:
 
 		UniformBufferObject ubo = m_camera.GetMVP();
 
-		ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
+		// m_objects[0].SetScale( glm::vec3( 15 * sin( timeElapsed ), cos( timeElapsed ), 1.0f ) );
+
+		// ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 
 		// Copy the data into the uniform buffer
 		void* mappedMemPtr;
@@ -1241,11 +1240,11 @@ private:
 		// Destroy the swapchain and all dependencies
 		CleanupSwapchain();
 
-		// Destroy the models
-		for ( auto& model : m_models )
+		// Destroy the objects
+		for ( auto& object : m_objects )
 		{
-			// Cleanup the model resources
-			model.Cleanup();
+			// Cleanup the object resources
+			object.Cleanup();
 		}
 
 		// Destroy the descriptor set layout
