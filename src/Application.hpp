@@ -73,6 +73,7 @@ private:
 	VkDeviceMemory				 m_vertexBufferMemory;
 	VkBuffer					 m_indexBuffer;
 	VkDeviceMemory				 m_indexBufferMemory;
+	uint32_t					 m_indicesCount;
 	std::vector<VkBuffer>		 m_uniformBuffers;
 	std::vector<VkDeviceMemory>	 m_uniformBuffersMemory;
 	Image						 m_depthImage;
@@ -164,7 +165,7 @@ private:
 		glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
 
 		// Set the window variable
-		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, glfwGetPrimaryMonitor(), nullptr );
+		m_window = glfwCreateWindow( WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr );
 
 		// State that the window hasn't been resized yet
 		m_framebufferResized = false;
@@ -176,7 +177,6 @@ private:
 		glfwSetInputMode( m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
 
 		// Callbacks
-
 		glfwSetFramebufferSizeCallback( m_window, FramebufferResizeCallback ); // Create a window resize callback
 		glfwSetKeyCallback( m_window, KeyboardCallback );					   // Create a keyboard callback
 		glfwSetCursorPosCallback( m_window, MouseCallback );				   // Create a mouse callback
@@ -838,7 +838,7 @@ private:
 			vkCmdBindDescriptorSets( m_commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, m_descriptorCollection.GetSetRef( i ), 0, nullptr );
 
 			// Record the drawing of the triangle
-			vkCmdDrawIndexed( m_commandBuffers[i], static_cast<uint32_t>( m_models[0].GetIndices().size() ), 1, 0, 0, 0 );
+			vkCmdDrawIndexed( m_commandBuffers[i], m_indicesCount, 1, 0, 0, 0 );
 
 			// Record the end of the render pass
 			vkCmdEndRenderPass( m_commandBuffers[i] );
@@ -906,12 +906,15 @@ private:
 			indices.insert( indices.end(), modelIndices.begin(), modelIndices.end() );
 		}
 
+		// Set the number of indices (needed to know how many to draw)
+		m_indicesCount = indices.size();
+
 		// Create a vertex buffer using a staging buffer
 		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(),
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_vertexBuffer, &m_vertexBufferMemory );
 
 		// Create an index buffer using a staging buffer
-		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( indices[0] ), indices.data(),
+		CreateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( IndexBufferType ), indices.data(),
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_indexBuffer, &m_indexBufferMemory );
 	}
 
@@ -926,8 +929,8 @@ private:
 		// Setup the descriptor set layout binding for image
 		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
-		// // Setup the descriptor set layout binding for image again
-		// m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
+		// Setup the descriptor set layout binding for image again
+		m_descriptorCollection.AddLayoutBinding( VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr );
 
 		// Create the descriptor set layout
 		m_descriptorCollection.CreateLayout();
@@ -959,8 +962,8 @@ private:
 		// Add an image descriptor
 		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[0].GetTexture().GetImageView(), m_models[0].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
-		// // Add an image descriptor again
-		// m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[1].GetTexture().GetImageView(), m_models[1].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
+		// Add an image descriptor again
+		m_descriptorCollection.AddImageSets( VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_models[1].GetTexture().GetImageView(), m_models[1].GetTexture().GetSampler(), VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER );
 
 		// Update the sets
 		m_descriptorCollection.UpdateSets();
@@ -972,27 +975,27 @@ private:
 		Model model;
 
 		// Initialise the model and its texture
-		model.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		model.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 					VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_models.size() ) );
 
-		// model.SetVerticesAndIndices( cubeVertices, cubeIndices );
+		model.SetVerticesAndIndices( cubeVertices, cubeIndices );
 
 		// Add to the models vector
 		m_models.push_back( model );
 
-		// // Create a model object
-		// Model model2;
+		// Create a model object
+		Model model2;
 
-		// // Initialise the model and its texture
-		// model2.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
-		// 			 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		// 			 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT );
+		// Initialise the model and its texture
+		model2.Init( MODEL_PATH.c_str(), TEXTURE_PATH.c_str(), VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_models.size() ) );
 
 		// model2.SetVerticesAndIndices( cubeVertices, cubeIndices );
 
-		// // Add to the models vector
-		// m_models.push_back( model2 );
+		// Add to the models vector
+		m_models.push_back( model2 );
 	}
 
 	void CreateColourResources()
@@ -1164,7 +1167,7 @@ private:
 			deltaT			   = currentFrame - lastFrame; // Time since last frame
 			lastFrame		   = currentFrame;
 
-			// Increment time elapsed
+			// Increment time elapsed and frame count
 			timeElapsed += deltaT;
 
 			glfwPollEvents(); // Check for events and then call the correct callback

@@ -107,20 +107,23 @@ class Texture : public Image
 private:
 	uint32_t  m_mipLevels;
 	VkSampler m_sampler;
+	uint32_t  m_samplerID;
 
 public:
-	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t p_width, const uint32_t p_height, const uint32_t& p_mipLevels,
-			   const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage,
-			   const VkMemoryPropertyFlags& p_properties, const VkImageAspectFlags& p_aspectFlags ) = delete;
+	void
+	Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const uint32_t p_width, const uint32_t p_height, const uint32_t& p_mipLevels,
+		  const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage,
+		  const VkMemoryPropertyFlags& p_properties, const VkImageAspectFlags& p_aspectFlags ) = delete;
 
 	void Init( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
 			   const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const char* path, const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format,
 			   const VkImageTiling& p_tiling, const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
-			   const VkImageAspectFlags& p_aspectFlags )
+			   const VkImageAspectFlags& p_aspectFlags, const uint32_t& p_samplerID )
 	{
 		// Set the member variables using the parameters
 		m_logicalDevice = const_cast<VkDevice*>( &p_logicalDevice );
 		m_format		= const_cast<VkFormat*>( &p_format );
+		m_samplerID		= p_samplerID;
 
 		// Get the pixels
 		int		 texWidth, texHeight, texChannels;
@@ -210,6 +213,7 @@ public:
 
 	inline const uint32_t&	GetMipLevels() const { return m_mipLevels; }
 	inline const VkSampler& GetSampler() const { return m_sampler; }
+	inline const uint32_t&	GetSamplerID() const { return m_samplerID; }
 
 	void Cleanup() override
 	{

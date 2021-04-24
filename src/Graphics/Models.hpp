@@ -68,6 +68,8 @@ public:
 
 				vertex.colour = { 1.0f, 1.0f, 1.0f };
 
+				vertex.samplerID = m_texture.GetSamplerID();
+
 				if ( uniqueVertices.count( vertex ) == 0 )
 				{
 					uniqueVertices[vertex] = static_cast<IndexBufferType>( m_vertices.size() );
@@ -82,21 +84,21 @@ public:
 	void LoadTexture( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
 					  const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const char* path, const VkSampleCountFlagBits& p_sampleCount, const VkFormat& p_format, const VkImageTiling& p_tiling,
 					  const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
-					  const VkImageAspectFlags& p_aspectFlags )
+					  const VkImageAspectFlags& p_aspectFlags, const uint32_t& p_samplerID )
 	{
 		m_texture.Init( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, path, p_sampleCount, p_format, p_tiling, p_usage, p_properties,
-						p_aspectFlags );
+						p_aspectFlags, p_samplerID );
 	}
 
 	void Init( const char* modelPath, const char* texturePath, const VkSampleCountFlagBits& p_sampleCount, const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue,
 			   const VkPhysicalDeviceProperties& p_physicalDeviceProperties, const VkFormat& p_format, const VkImageTiling& p_tiling,
 			   const VkImageUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties,
-			   const VkImageAspectFlags& p_aspectFlags )
+			   const VkImageAspectFlags& p_aspectFlags, const uint32_t& p_samplerID )
 	{
 
 		// Load the texture
 		LoadTexture( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_physicalDeviceProperties, texturePath, p_sampleCount, p_format, p_tiling, p_usage, p_properties,
-					 p_aspectFlags );
+					 p_aspectFlags, p_samplerID );
 
 		// Load the vertices and indices
 		LoadModel( modelPath );
@@ -109,8 +111,18 @@ public:
 
 	void SetVerticesAndIndices( const std::vector<Vertex>& p_vertices, const std::vector<IndexBufferType>& p_indices )
 	{
-		m_vertices = p_vertices;
-		m_indices  = p_indices;
+		// Clear and resize the vertices vector
+		m_vertices.clear();
+		m_vertices.resize( p_vertices.size() );
+
+		// Copy all vertices and change the sampler ID
+		for ( uint32_t i = 0; i < p_vertices.size(); i++ )
+		{
+			m_vertices[i]			= p_vertices[i];
+			m_vertices[i].samplerID = m_texture.GetSamplerID();
+		}
+
+		m_indices = p_indices;
 	}
 
 	inline const std::vector<Vertex>&		   GetVertices() const { return m_vertices; }

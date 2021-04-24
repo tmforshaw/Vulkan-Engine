@@ -11,6 +11,7 @@ struct Vertex
 	glm::vec3 position;
 	glm::vec3 colour;
 	glm::vec2 texCoord;
+	uint32_t  samplerID;
 
 	static VkVertexInputBindingDescription GetBindingDescription()
 	{
@@ -23,34 +24,53 @@ struct Vertex
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions()
+	static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions()
 	{
 		// Setup the atttribute descriptions
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions {};
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions {};
+		VkVertexInputAttributeDescription			   newDescription {};
 
 		// Position attribute
-		attributeDescriptions[0].binding  = 0;
-		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format	  = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[0].offset	  = offsetof( Vertex, position );
+		newDescription.binding	= 0;
+		newDescription.location = 0;
+		newDescription.format	= VK_FORMAT_R32G32B32_SFLOAT;
+		newDescription.offset	= offsetof( Vertex, position );
+
+		// Add description to vector
+		attributeDescriptions.push_back( newDescription );
 
 		// Colour attribute
-		attributeDescriptions[1].binding  = 0;
-		attributeDescriptions[1].location = 1;
-		attributeDescriptions[1].format	  = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset	  = offsetof( Vertex, colour );
+		newDescription.binding	= 0;
+		newDescription.location = 1;
+		newDescription.format	= VK_FORMAT_R32G32B32_SFLOAT;
+		newDescription.offset	= offsetof( Vertex, colour );
+
+		// Add description to vector
+		attributeDescriptions.push_back( newDescription );
 
 		// TexCoord attribute
-		attributeDescriptions[2].binding  = 0;
-		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format	  = VK_FORMAT_R32G32_SFLOAT;
-		attributeDescriptions[2].offset	  = offsetof( Vertex, texCoord );
+		newDescription.binding	= 0;
+		newDescription.location = 2;
+		newDescription.format	= VK_FORMAT_R32G32_SFLOAT;
+		newDescription.offset	= offsetof( Vertex, texCoord );
+
+		// Add description to vector
+		attributeDescriptions.push_back( newDescription );
+
+		// SamplerID attribute
+		newDescription.binding	= 0;
+		newDescription.location = 3;
+		newDescription.format	= VK_FORMAT_R32_UINT;
+		newDescription.offset	= offsetof( Vertex, samplerID );
+
+		// Add description to vector
+		attributeDescriptions.push_back( newDescription );
 
 		return attributeDescriptions;
 	}
 
 	bool operator==( const Vertex& other ) const
 	{
-		return position == other.position && colour == other.colour && texCoord == other.texCoord;
+		return position == other.position && colour == other.colour && texCoord == other.texCoord && samplerID == other.samplerID;
 	}
 };

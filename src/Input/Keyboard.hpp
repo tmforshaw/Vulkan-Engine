@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Graphics/Camera.hpp"
+#include "../VulkanUtil/Window.hpp"
 
 #include <GLFW/glfw3.h>
 #include <bitset>
@@ -76,6 +77,9 @@ public:
 	{
 		if ( Key.count( key ) > 0U ) // Exists in map
 		{
+			if ( m_keyMap[Key[key]] == true && val == false )
+				m_releasedMap[Key[key]] = true;
+
 			m_keyMap[Key[key]] = val;
 		}
 	}
@@ -84,6 +88,25 @@ public:
 	{
 		// When escape is pressed, close the window
 		if ( m_keyMap[Key[(char)GLFW_KEY_ESCAPE]] ) glfwSetWindowShouldClose( p_window, true );
+
+		// When F11 was just released, toggle fullscreen
+		if ( m_releasedMap[Key[(char)GLFW_KEY_F11]] )
+		{
+			std::cout << "Fullscreen toggle" << std::endl
+					  << std::endl;
+
+			if ( glfwGetWindowMonitor( p_window ) ) // There is a primary window
+				glfwSetWindowMonitor( p_window, nullptr, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0 );
+			else
+			{
+				GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+				if ( monitor )
+				{
+					const GLFWvidmode *mode = glfwGetVideoMode( monitor );
+					glfwSetWindowMonitor( p_window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate );
+				}
+			}
+		}
 
 		// When the shift key is down make the camera move faster
 		if ( m_keyMap[Key[(char)GLFW_KEY_LEFT_SHIFT]] )
@@ -116,6 +139,9 @@ public:
 			p_camera->ProcessKeyboard( CameraMovement::UP, deltaT );
 		if ( m_keyMap[Key[(char)GLFW_KEY_LEFT_CONTROL]] )
 			p_camera->ProcessKeyboard( CameraMovement::DOWN, deltaT );
+
+		// Set all released keys to false
+		m_releasedMap = 0;
 	}
 };
 
