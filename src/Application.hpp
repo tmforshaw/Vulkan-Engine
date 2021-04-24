@@ -932,6 +932,43 @@ private:
 									  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &m_indexBuffer, &m_indexBufferMemory );
 	}
 
+	void UpdateIndexAndVertexBuffer()
+	{
+		// Define a vertices vector
+		std::vector<Vertex> vertices {};
+
+		// Define a indices vector
+		std::vector<IndexBufferType> indices {};
+
+		// Create an offset for the indices;
+		IndexBufferType offset = 0;
+
+		// Add the indices from all the object models
+		for ( const auto& object : m_objects )
+		{
+			// Create a vector of the model's indices
+			std::vector<IndexBufferType> modelIndices = object.GetModel().GetAdjustedIndices( offset );
+
+			// Create a vector of the model's vertices after a matrix transformation
+			std::vector<Vertex> modelVertices = object.GetVerticesAfterModelMatrix();
+
+			// Increment the offset
+			offset += modelVertices.size();
+
+			// Add it to the end of the vertices vector
+			vertices.insert( vertices.end(), modelVertices.begin(), modelVertices.end() );
+
+			// Add it to the end of the indices vector
+			indices.insert( indices.end(), modelIndices.begin(), modelIndices.end() );
+		}
+
+		// Update the vertex buffer
+		UpdateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, vertices.size() * sizeof( Vertex ), vertices.data(), &m_vertexBuffer );
+
+		// Update the index buffer
+		UpdateBufferViaStagingBuffer( m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, indices.size() * sizeof( IndexBufferType ), indices.data(), &m_indexBuffer );
+	}
+
 	void CreateDescriptorSetLayout()
 	{
 		// Setup the descriptor collection
@@ -1084,6 +1121,9 @@ private:
 		else if ( !( result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR ) )
 			throw std::runtime_error( "Failed to acquire swapchain image" );
 
+		// Update the vertex and index buffers
+		UpdateIndexAndVertexBuffer();
+
 		// Update the uniform buffer
 		UpdateUniformBuffer( imageIndex );
 
@@ -1163,8 +1203,6 @@ private:
 		UniformBufferObject ubo = m_camera.GetMVP();
 
 		// m_objects[0].SetScale( glm::vec3( 15 * sin( timeElapsed ), cos( timeElapsed ), 1.0f ) );
-
-		std::cout << m_objects[0].GetScale().x << std::endl;
 
 		// ubo.model = glm::rotate( glm::mat4( 1.0f ), timeElapsed * glm::radians( 22.5f ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 

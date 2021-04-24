@@ -72,7 +72,7 @@ static void CopyBuffer( const VkDevice& p_logicalDevice, const VkCommandPool& p_
 	EndSingleTimeCommands( p_logicalDevice, p_graphicsQueue, p_commandPool, commandBuffer );
 }
 
-static void CreateBufferViaStagingBuffer( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkDeviceSize& p_size, const void* p_data, const VkBufferUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, VkBuffer* p_buffer, VkDeviceMemory* p_bufferMemory )
+static void UpdateBufferViaStagingBuffer( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkDeviceSize& p_size, const void* p_data, VkBuffer* p_buffer )
 {
 	// Setup the staging buffer
 	VkBuffer	   stagingBuffer;
@@ -91,13 +91,19 @@ static void CreateBufferViaStagingBuffer( const VkDevice& p_logicalDevice, const
 	// Remove the mapping to CPU accessible memory
 	vkUnmapMemory( p_logicalDevice, stagingBufferMemory );
 
-	// Create the vertex buffer
-	CreateBuffer( p_logicalDevice, p_physicalDevice, p_size, p_usage, p_properties, p_buffer, p_bufferMemory );
-
-	// Copy the data from the staging buffer to the vertex buffer
+	// Copy the data from the staging buffer to the buffer
 	CopyBuffer( p_logicalDevice, p_commandPool, p_graphicsQueue, stagingBuffer, *p_buffer, p_size );
 
 	// Destroy the staging buffer and free it's memory
 	vkDestroyBuffer( p_logicalDevice, stagingBuffer, nullptr );
 	vkFreeMemory( p_logicalDevice, stagingBufferMemory, nullptr );
+}
+
+static void CreateBufferViaStagingBuffer( const VkDevice& p_logicalDevice, const VkPhysicalDevice& p_physicalDevice, const VkCommandPool& p_commandPool, const VkQueue& p_graphicsQueue, const VkDeviceSize& p_size, const void* p_data, const VkBufferUsageFlags& p_usage, const VkMemoryPropertyFlags& p_properties, VkBuffer* p_buffer, VkDeviceMemory* p_bufferMemory )
+{
+	// Create the buffer
+	CreateBuffer( p_logicalDevice, p_physicalDevice, p_size, p_usage, p_properties, p_buffer, p_bufferMemory );
+
+	// Update the buffer using a staging buffer
+	UpdateBufferViaStagingBuffer( p_logicalDevice, p_physicalDevice, p_commandPool, p_graphicsQueue, p_size, p_data, p_buffer );
 }
