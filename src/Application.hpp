@@ -1051,7 +1051,7 @@ private:
 		WorldObject object;
 
 		// Initialise the object and its texture
-		object.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", { 0.0f, 2.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
+		object.Init( MODEL_PATH.c_str(), "resources/textures/Kitten.jpeg", { 0.0f, 0.0f, 2.0f }, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, VK_SAMPLE_COUNT_1_BIT, m_logicalDevice, m_physicalDevice, m_commandPool, m_graphicsQueue, m_physicalDeviceProperties,
 					 VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 					 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<uint32_t>( m_objects.size() ) );
 
@@ -1140,7 +1140,7 @@ private:
 	void CreateLights()
 	{
 		m_pointLights.resize( 1 );
-		m_pointLights[0] = PointLight( { 1.0f, 1.0f, 1.0f }, { 1.0f, 2.0f, 4.0f } );
+		m_pointLights[0] = PointLight( { 1.0f, 1.0f, 1.0f }, { 1.0f, 4.0f, 2.0f } );
 	}
 
 	void DrawFrame()

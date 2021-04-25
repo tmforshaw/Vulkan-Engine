@@ -24,10 +24,10 @@ layout( location = 4 ) out mat4 outFragViewMat;
 void main()
 {
 	// Position for the vertex shader output
-	gl_Position = ubo.proj * ubo.view * ubo.model * vec4( inPosition.xyz, 1.0 );
+	gl_Position = ubo.proj * ubo.view * ubo.model * vec4( inPosition, 1.0 );
 
 	// Ouput variables
-	oFragPos	   = vec3( ubo.view * ubo.model * vec4( inPosition.xyz, 1.0 ) ); // Model matrix is pre-applied
+	oFragPos	   = vec3( ubo.view * ubo.model * vec4( inPosition, 1.0 ) ); // Model matrix is pre-applied
 	oFragTexCoord  = inTexCoord;
 	oFragNormal	   = inNormal;
 	oFragSamplerID = inSamplerID;

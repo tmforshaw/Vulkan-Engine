@@ -13,6 +13,11 @@
 #define MIN_FOV 1.0f
 #define MAX_FOV 75.0f
 
+// Constants
+#define PI		3.14159265f
+#define TWO_PI	2.0f * PI
+#define HALF_PI PI / 2.0f
+
 // Define the ways the camera can move
 enum class CameraMovement
 {
@@ -61,7 +66,7 @@ public:
 		m_mouseSensitivity = MOUSE_SENS;
 		m_zoomSensitivity  = ZOOM_SENS;
 		m_fov			   = FOV_DEFAULT;
-		m_worldUp		   = glm::vec3( 0.0f, 0.0f, 1.0f );
+		m_worldUp		   = glm::vec3( 0.0f, 1.0f, 0.0f );
 		m_movingFast	   = false;
 		m_movingSlow	   = false;
 
@@ -111,7 +116,7 @@ public:
 	void ProcessMouse( const float& xOff, const float& yOff )
 	{
 		// Dampen or strengthen the mouse input to a reasonable level and add the adjusted offsets to the rotation
-		m_rotation.x -= xOff * m_mouseSensitivity;
+		m_rotation.x += xOff * m_mouseSensitivity;
 		m_rotation.y += yOff * m_mouseSensitivity;
 
 		// Update the axis of the camera (Also ensures that the rotation is clamped)
@@ -133,19 +138,18 @@ public:
 	void UpdateVectors()
 	{
 		// Fix yaw by removing the remainder (modulo 2 pi)
-		m_rotation.x = glm::mod( m_rotation.x, glm::pi<float>() * 2.0f );
+		m_rotation.x = glm::mod( m_rotation.x, TWO_PI );
 
 		// Constrain pitch
-		if ( m_rotation.y > glm::radians( 89.0f ) )
-			m_rotation.y = glm::radians( 89.0f );
-		if ( m_rotation.y < glm::radians( -89.0f ) )
-			m_rotation.y = glm::radians( -89.0f );
+		bool negative = ( m_rotation.y < 0.0f );
+		if ( std::fabs( m_rotation.y ) > HALF_PI - 0.01 )
+			m_rotation.y = ( negative ? -1 : 1 ) * ( HALF_PI - 0.01 );
 
 		// Set new forward direction
 		m_zDirection = glm::normalize( glm::vec3(
 			cos( m_rotation.x ) * cos( m_rotation.y ),
-			sin( m_rotation.x ) * cos( m_rotation.y ),
-			sin( m_rotation.y ) ) );
+			sin( m_rotation.y ),
+			sin( m_rotation.x ) * cos( m_rotation.y ) ) );
 
 		// Recalculate x and y axis
 		m_xDirection = glm::normalize( glm::cross( m_zDirection, m_worldUp ) );

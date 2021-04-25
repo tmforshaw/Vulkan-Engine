@@ -61,15 +61,15 @@ public:
 				// Get position
 				vertex.position = {
 					attrib.vertices[3 * index.vertex_index + 0],
-					attrib.vertices[3 * index.vertex_index + 1],
-					attrib.vertices[3 * index.vertex_index + 2]
+					attrib.vertices[3 * index.vertex_index + 2],
+					attrib.vertices[3 * index.vertex_index + 1]
 				};
 
 				// Get the surface normals
 				vertex.normal = {
 					attrib.normals[3 * index.normal_index + 0],
-					-attrib.normals[3 * index.normal_index + 1], // Flip vertically
-					attrib.normals[3 * index.normal_index + 2]
+					-attrib.normals[3 * index.normal_index + 2],
+					attrib.normals[3 * index.normal_index + 1] // Flip vertically
 				};
 
 				// Get texCoords and flip vertically
@@ -133,8 +133,8 @@ public:
 		// Copy all vertices and change the sampler ID
 		for ( uint32_t i = 0; i < p_vertices.size(); i++ )
 		{
-			m_vertices[i] = p_vertices[i];
-			// m_vertices[i].normal.y	= -m_vertices[i].normal.y; // Flip vertically
+			m_vertices[i]			= p_vertices[i];
+			m_vertices[i].normal.y	= -m_vertices[i].normal.y; // Flip vertically
 			m_vertices[i].samplerID = m_texture.GetSamplerID();
 		}
 
