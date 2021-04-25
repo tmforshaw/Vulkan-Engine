@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Graphics/Camera.hpp"
+#include "../VulkanUtil/Timing.hpp"
 #include "../VulkanUtil/Window.hpp"
 
 #include <GLFW/glfw3.h>
@@ -66,6 +67,10 @@ std::map<char, uint16_t> Key {
 	{ GLFW_KEY_F12, 52 }
 };
 
+static bool		countingFramesBool = false;
+static uint32_t frameCount		   = 0;
+static float	countingStartTime  = 0.0;
+
 class KeyboardHandler
 {
 private:
@@ -107,6 +112,25 @@ public:
 		// 		}
 		// 	}
 		// }
+
+		// When the F10 key is pressed or released count the fps
+		if ( m_keyMap[Key[(char)GLFW_KEY_F10]] )
+		{
+			if ( countingFramesBool )
+			{
+				frameCount++;
+			}
+			else
+			{
+				frameCount		   = 0;
+				countingFramesBool = true;
+				countingStartTime  = timeElapsed;
+			}
+		}
+		else if ( m_releasedMap[Key[(char)GLFW_KEY_F10]] )
+		{
+			std::cout << "Average FPS: " << frameCount / ( timeElapsed - countingStartTime ) << " (over " << ( timeElapsed - countingStartTime ) << "s)" << std::endl;
+		}
 
 		// When the shift key is down make the camera move faster
 		if ( m_keyMap[Key[(char)GLFW_KEY_LEFT_SHIFT]] )

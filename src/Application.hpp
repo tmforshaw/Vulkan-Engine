@@ -18,6 +18,7 @@
 #include "VulkanUtil/ImageView.hpp"
 #include "VulkanUtil/QueueFamilies.hpp"
 #include "VulkanUtil/Swapchain.hpp"
+#include "VulkanUtil/Timing.hpp"
 #include "VulkanUtil/Window.hpp"
 
 #define GLM_FORCE_RADIANS
@@ -34,11 +35,6 @@ const std::string MODEL_PATH   = "resources/models/viking_room.obj";
 const std::string TEXTURE_PATH = "resources/textures/viking_room.png";
 
 #define MAX_FRAMES_IN_FLIGHT 2 // Maximum number of frames to process concurrently
-
-// Timing variables
-static float deltaT		 = 0.0f; // Time between current frame and last frame
-static float lastFrame	 = 0.0f; // Time of last frame
-static float timeElapsed = 0.0f; // The time elapsed since timing started
 
 class Application
 {
@@ -1144,7 +1140,7 @@ private:
 	void CreateLights()
 	{
 		m_pointLights.resize( 1 );
-		m_pointLights[0] = PointLight( { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f } );
+		m_pointLights[0] = PointLight( { 1.0f, 1.0f, 1.0f }, { 1.0f, 2.0f, 4.0f } );
 	}
 
 	void DrawFrame()

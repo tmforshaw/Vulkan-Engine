@@ -23,7 +23,7 @@ namespace std
 		size_t operator()( Vertex const& vertex ) const
 		{
 			return ( ( hash<glm::vec3>()( vertex.position ) ^ ( hash<glm::vec3>()( vertex.normal ) << 1 ) ) >> 1 ) ^
-				   ( ( hash<glm::vec2>()( vertex.texCoord ) ^ ( hash<uint32_t>()( vertex.samplerID ) << 1 ) ) >> 1 );
+				   ( ( ( hash<glm::vec2>()( vertex.texCoord ) << 1 ) ^ ( hash<uint32_t>()( vertex.samplerID ) << 2 ) ) >> 2 );
 		}
 	};
 } // namespace std
@@ -133,8 +133,8 @@ public:
 		// Copy all vertices and change the sampler ID
 		for ( uint32_t i = 0; i < p_vertices.size(); i++ )
 		{
-			m_vertices[i]			= p_vertices[i];
-			m_vertices[i].normal.y	= -m_vertices[i].normal.y; // Flip vertically
+			m_vertices[i] = p_vertices[i];
+			// m_vertices[i].normal.y	= -m_vertices[i].normal.y; // Flip vertically
 			m_vertices[i].samplerID = m_texture.GetSamplerID();
 		}
 
@@ -224,12 +224,12 @@ const std::vector<Vertex> cubeVertices = {
     { { -0.5f,  0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 0.0f, 0.0f } },
     { { -0.5f, -0.5f,  0.5f }, { 0.0f,  0.0f, 1.0f, }, { 0.0f, 1.0f } },
 
-    { { -0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
-    { { -0.5f,  0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 1.0f } },
-    { { -0.5f, -0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
-    { { -0.5f, -0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
-    { { -0.5f, -0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 0.0f, 0.0f } },
-    { { -0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
+    { { -0.5f,  0.5f,  0.5f }, { -1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
+    { { -0.5f,  0.5f, -0.5f }, { -1.0f,  0.0f,  0.0f }, { 1.0f, 1.0f } },
+    { { -0.5f, -0.5f, -0.5f }, { -1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
+    { { -0.5f, -0.5f, -0.5f }, { -1.0f,  0.0f,  0.0f }, { 0.0f, 1.0f } },
+    { { -0.5f, -0.5f,  0.5f }, { -1.0f,  0.0f,  0.0f }, { 0.0f, 0.0f } },
+    { { -0.5f,  0.5f,  0.5f }, { -1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
 
     { {  0.5f,  0.5f,  0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 0.0f } },
     { {  0.5f,  0.5f, -0.5f }, { 1.0f,  0.0f,  0.0f }, { 1.0f, 1.0f } },

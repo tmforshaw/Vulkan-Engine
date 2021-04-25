@@ -9,7 +9,7 @@ SHADER_DIR := shaders
 INCLUDE_DIR := include
 
 CC = clang++
-C_FLAGS = -std=c++2a -I$(INCLUDE_DIR) -Wall # -O2
+C_FLAGS = -std=c++2a -I$(INCLUDE_DIR) -Wall # -O3
 LINK_FLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
