@@ -42,4 +42,5 @@ public:
 	}
 
 	inline const glm::vec3& GetPos() const { return m_position; }
+	inline void				SetPos( const glm::vec3& p_position ) { m_position = p_position; }
 };

@@ -81,6 +81,10 @@ public:
 	inline void SetRot( const glm::vec3& p_rotation ) { m_rotation = p_rotation; }
 	inline void SetScale( const glm::vec3& p_scale ) { m_scale = p_scale; }
 
+	inline void ChangePos( const glm::vec3& p_deltaPosition ) { m_position += p_deltaPosition; }
+	inline void ChangeRot( const glm::vec3& p_deltaRotation ) { m_rotation += p_deltaRotation; }
+	inline void ChangeScale( const glm::vec3& p_deltaScale ) { m_scale += p_deltaScale; }
+
 	void Cleanup()
 	{
 		m_model.Cleanup();
